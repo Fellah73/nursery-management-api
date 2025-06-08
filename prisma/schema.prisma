@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  name            String    @db.VarChar
+  familyName      String    @db.VarChar
+  email           String    @unique @db.VarChar
+  password        String    @db.Text
+  phone           Int?
+  role            RoleType?
+  address         String?   @db.Text
+  gender          Gender?
+  profile_picture String?   @db.VarChar
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relations
+  children Children[]
+
+  @@map("users")
+}
+
+model Children {
+  id           Int      @id @default(autoincrement())
+  full_name    String   @db.VarChar
+  birth_date   DateTime
+  gender       Gender
+  parent_id    Int
+  medical_info String?  @db.Text
+  created_at   DateTime @default(now())
+
+  // Relations
+  parent User @relation(fields: [parent_id], references: [id])
+
+  @@map("children")
+}
+
+enum Gender {
+  H 
+  F
+}
+
+enum RoleType {
+  ADMIN
+  USER
+  GUEST
+}
