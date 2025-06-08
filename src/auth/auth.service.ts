@@ -25,7 +25,7 @@ export class AuthService {
     return 'Profile endpoint';
   }
   login() {
-    return 'Login endpoint';
+    return 'Login e ndpoint';
   }
   register(body: any) {
     console.log('Registering user with data:', body);
