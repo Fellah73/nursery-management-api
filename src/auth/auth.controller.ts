@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { LoginDto, RegisterDto } from './dto/auth-dto';
+import { Response } from 'express';
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -8,28 +11,23 @@ export class AuthController {
   getAuth() {
     return this.authService.getAuth();
   }
-
   @Get('/me') // GET auth/me
-  getProfile() {
-    return this.authService.getProfile();
+  getLoggingStatus() {
+    return this.authService.getLoggingStatus();
   }
 
   @Post('/login') // POST auth/login
-  login() {
-    return this.authService.login();
-  }
-  @Post('/register') // POST auth/register
-  register(@Body () body: any) {
-    return this.authService.register(body);
+  login(@Body() body: LoginDto, @Res() res: Response) {
+    return this.authService.login(body, res);
   }
 
-  @Post('/forgot-password') // POST auth/forgot-password
-  forgotPassword() {
-    return this.authService.forgotPassword();
+  @Post('/register') // POST auth/register
+  register(@Body() body: RegisterDto, @Res() res: Response) {
+    return this.authService.register(body, res);
   }
 
   @Post('/logout') // POST auth/logout
-  logout() {
-    return this.authService.logout();
+  logout(@Res() res: Response) {
+    return this.authService.logout(res);
   }
 }

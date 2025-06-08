@@ -15,7 +15,7 @@ model User {
   email           String    @unique @db.VarChar
   password        String    @db.Text
   phone           Int?
-  role            RoleType?
+  role            RoleType?  @default(PARENT)
   address         String?   @db.Text
   gender          Gender?
   profile_picture String?   @db.VarChar
@@ -50,6 +50,6 @@ enum Gender {
 
 enum RoleType {
   ADMIN
-  USER
-  GUEST
+  PARENT
+  TEACHER
 }
