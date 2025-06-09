@@ -15,13 +15,13 @@ model User {
   email           String    @unique @db.VarChar
   password        String    @db.Text
   phone           Int?
-  role            RoleType?  @default(PARENT)
+  role            RoleType? @default(PARENT)
   address         String?   @db.Text
   gender          Gender?
   profile_picture String?   @db.VarChar
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
-  isActive       Boolean   @default(true)
+  isActive        Boolean   @default(true)
 
   // Relations
   children Children[]
@@ -30,13 +30,21 @@ model User {
 }
 
 model Children {
-  id           Int      @id @default(autoincrement())
-  full_name    String   @db.VarChar
-  birth_date   DateTime
-  gender       Gender
-  parent_id    Int
-  medical_info String?  @db.Text
-  created_at   DateTime @default(now())
+  id                 Int       @id @default(autoincrement())
+  full_name          String    @db.VarChar
+  birth_date         String    @db.VarChar
+  gender             Gender
+  age                Int
+  profile_picture    String?   @db.VarChar
+  parent_id          Int
+  medical_info       String?   @db.Text
+  allergies          String?   @db.Text
+  special_needs      String?   @db.Text
+  entry_date         String?
+  emergency_contact  String?   @db.VarChar
+  vaccination_status String?   @db.VarChar
+  notes              String?   @db.Text
+  created_at         DateTime  @default(now())
 
   // Relations
   parent User @relation(fields: [parent_id], references: [id])
@@ -45,7 +53,7 @@ model Children {
 }
 
 enum Gender {
-  H 
+  H
   F
 }
 
