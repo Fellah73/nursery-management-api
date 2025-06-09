@@ -21,6 +21,7 @@ model User {
   profile_picture String?   @db.VarChar
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
 
   // Relations
   children Children[]
@@ -49,6 +50,7 @@ enum Gender {
 }
 
 enum RoleType {
+  SUPER_ADMIN
   ADMIN
   PARENT
   TEACHER
