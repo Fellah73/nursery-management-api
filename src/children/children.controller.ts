@@ -23,7 +23,7 @@ export class ChildrenController {
     return this.childrenService.getChildrenStatistics(admin_id);
   }
 
-  @Get('search')
+  @Get('search') // Get /children/search?name= to search children by name
   searchChildren(@Query('name') name: string) {
     return this.childrenService.searchChildren(name);
   }

@@ -27,7 +27,7 @@ export class UsersController {
   createUser(@Body() body: UserDtoCreate) { 
     return this.usersService.createUser(body);
   }
-  @Get('/search') // GET
+  @Get('/search') // GET users/search?search_query= to search users by name or email
   searchUsers(@Query('search_query') search_query: string) { 
     return this.usersService.searchUsers(search_query);
   }

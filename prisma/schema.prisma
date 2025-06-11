@@ -30,26 +30,49 @@ model User {
 }
 
 model Children {
-  id                 Int       @id @default(autoincrement())
-  full_name          String    @db.VarChar
-  birth_date         String    @db.VarChar
+  id                 Int      @id @default(autoincrement())
+  full_name          String   @db.VarChar
+  birth_date         String   @db.VarChar
   gender             Gender
   age                Int
-  profile_picture    String?   @db.VarChar
+  profile_picture    String?  @db.VarChar
   parent_id          Int
-  medical_info       String?   @db.Text
-  allergies          String?   @db.Text
-  special_needs      String?   @db.Text
+  medical_info       String?  @db.Text
+  allergies          String?  @db.Text
+  special_needs      String?  @db.Text
   entry_date         String?
-  emergency_contact  String?   @db.VarChar
-  vaccination_status String?   @db.VarChar
-  notes              String?   @db.Text
-  created_at         DateTime  @default(now())
+  emergency_contact  String?  @db.VarChar
+  vaccination_status String?  @db.VarChar
+  notes              String?  @db.Text
+  created_at         DateTime @default(now())
 
   // Relations
   parent User @relation(fields: [parent_id], references: [id])
 
   @@map("children")
+}
+
+model Menu {
+  id   Int      @id @default(autoincrement())
+  date String 
+  day  String   @db.VarChar(20)
+  type MenuType 
+
+  // 🍽️ Déjeuner
+  starter     String? @db.Text // Entrée (ex : soupe, salade)
+  main_course String? @db.Text // Plat principal (ex : riz-poulet)
+  side_dish   String? @db.Text // Accompagnement (ex : légumes)
+  dessert     String? @db.Text // Dessert (ex : yaourt, fruits)
+  drink       String? @db.Text // Boisson (eau, jus, etc.)
+
+  // 🧁 Goûter
+  snack String? @db.Text // Description de la collation
+
+  // Autres
+  special_note String?  @db.Text // Notes spéciales (sans gluten, halal, etc.)
+  created_at   DateTime @default(now()) // Date d'ajout dans le système
+
+  @@map("menus")
 }
 
 enum Gender {
@@ -62,4 +85,9 @@ enum RoleType {
   ADMIN
   PARENT
   TEACHER
+}
+enum MenuType {
+  Breakfast
+  Lunch
+  Gouter
 }
