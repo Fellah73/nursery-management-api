@@ -18,6 +18,11 @@ export class ChildrenController {
   ) {
     return this.childrenService.createChild(admin_id, childData);
   }
+  @Get('statistics') // Get /children/statistics to retrieve children statistics
+  getChildrenStatistics(@Query('admin_id') admin_id: string) {
+    return this.childrenService.getChildrenStatistics(admin_id);
+  }
+
   @Get('search')
   searchChildren(@Query('name') name: string) {
     return this.childrenService.searchChildren(name);
@@ -25,5 +30,15 @@ export class ChildrenController {
   @Get(':id') // Get /children/:id to retrieve a child by ID
   getChildById(@Param('id') id: number) {
     return this.childrenService.getChildById(id);
+  }
+
+  @Get(':id/medical-info') // Get /children/:id/medical-info to retrieve medical info by child ID
+  getMedicalInfoByChildId(@Param('id') id: number) {
+    return this.childrenService.getMedicalInfoByChildId(Number(id));
+  }
+
+  @Get('by-parent/:parentId') // Get /children/by-parent/:parentId to retrieve children by parent ID
+  getChildrenByParentId(@Param('parentId') parentId: number) {
+    return this.childrenService.getChildrenByParentId(Number(parentId));
   }
 }
