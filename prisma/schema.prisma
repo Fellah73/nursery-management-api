@@ -24,7 +24,8 @@ model User {
   isActive        Boolean   @default(true)
 
   // Relations
-  children Children[]
+  children      Children[]
+  userResponses UserResponse[]
 
   @@map("users")
 }
@@ -54,9 +55,9 @@ model Children {
 
 model Menu {
   id   Int      @id @default(autoincrement())
-  date String 
+  date String
   day  String   @db.VarChar(20)
-  type MenuType 
+  type MenuType
 
   // 🍽️ Déjeuner
   starter     String? @db.Text // Entrée (ex : soupe, salade)
@@ -75,6 +76,34 @@ model Menu {
   @@map("menus")
 }
 
+model Question {
+  id    Int    @id @default(autoincrement())
+  label String @db.Text
+  created_at DateTime @default(now())
+
+  // Relations
+  userResponses UserResponse[]
+
+  @@map("questions")
+}
+
+model UserResponse {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  question_id Int
+  response    String   @db.Text
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  user     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [question_id], references: [id], onDelete: Cascade)
+
+  // Index composite pour éviter les doublons (un utilisateur ne peut répondre qu'une fois à une question)
+  @@unique([user_id, question_id])
+  @@map("user_responses")
+}
+
 enum Gender {
   H
   F
@@ -86,6 +115,7 @@ enum RoleType {
   PARENT
   TEACHER
 }
+
 enum MenuType {
   Breakfast
   Lunch
