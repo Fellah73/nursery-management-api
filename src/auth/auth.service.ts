@@ -1,10 +1,10 @@
-import { Body, Injectable, Query, Res } from '@nestjs/common';
+import { Body, Injectable, Query, Req, Res } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { LoginDto, RegisterDto } from './dto/auth-dto';
 import * as bcrypt from 'bcrypt';
 import { env } from 'process';
 import * as jwt from 'jsonwebtoken';
-import { Response } from 'express';
+import { Response,Request } from 'express';
 @Injectable()
 export class AuthService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -82,7 +82,8 @@ export class AuthService {
       });
       if (isExistingUser) {
         return res.status(409).json({
-          message: 'User already exists',
+          message: 'utilisateur déjà existant',
+          success: false,
           statusCode: 409,
         });
       }
@@ -90,8 +91,9 @@ export class AuthService {
       const hashedPassword = await bcrypt.hash(body.password, saltRounds);
       if (!hashedPassword) {
         return res.status(500).json({
-          message: 'Error hashing password',
+          message: 'Erreur lors du hachage du mot de passe',
           success: false,
+          statusCode: 500
         });
       }
       const newUser = await this.prismaService.user.create({
@@ -118,13 +120,12 @@ export class AuthService {
       const { password, ...userWithoutPassword } = newUser;
       return res.status(201).json({
         message: 'Registration successful',
-        data: userWithoutPassword,
+        user: userWithoutPassword,
         success: true,
       });
     } catch (error) {
       return res.status(500).json({
-        message: 'Registration failed',
-        error: error.message || error,
+        message: `registration failed ${error.message ?? error}`,
         success: false,
       });
     }
@@ -144,17 +145,16 @@ export class AuthService {
       });
     }
   }
-  async getLoggingStatus() {
+  async getLoggingStatus(@Req() req: Request, @Res() res: Response) {
     try {
-      const cookieStore = globalThis?.cookieStore || new Map();
-      const cookie = await cookieStore.get('authToken');
-      const token = cookie?.value || null;
+  
+      const token = req.cookies?.authToken || null;
 
       if (!token) {
-        return {
-          error: 'No token',
+        return res.status(401).json({
+          message: 'no token provided',
           success: false,
-        };
+        });
       }
 
       // Vérifier et décoder le token
@@ -165,21 +165,24 @@ export class AuthService {
       });
 
       if (!user) {
-        return {
-          error: 'User not found',
+        return res.status(404).json({
+          message: 'User not found',
           success: false,
-        };
+        });
       }
+      
+      // user without password
+      const { password, ...userWithoutPassword } = user;
 
-      return {
-        user: user,
+      return res.status(200).json({
+        user: userWithoutPassword,
         success: true,
-      };
+      });
     } catch (error) {
-      return {
+      return res.status(500).json({
         error: 'Failed to retrieve logging status',
         success: false,
-      };
+      });
     }
   }
 
@@ -330,14 +333,14 @@ export class AuthService {
   }
 
   async addAnswer(
-    user_id: string,
+    email: string,
     answer: string,
     question_id: string,
     @Res() res: Response,
   ) {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { id: Number(user_id) },
+        where: { email },
       });
       if (!user) {
         return res.status(404).json({

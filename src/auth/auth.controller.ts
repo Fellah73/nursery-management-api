@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth-dto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+
 
 @Controller('auth')
 export class AuthController {
@@ -12,8 +13,8 @@ export class AuthController {
     return this.authService.getAuth();
   }
   @Get('/me') // GET auth/me
-  getLoggingStatus() {
-    return this.authService.getLoggingStatus();
+  getLoggingStatus(@Req() req: Request, @Res() res: Response) {
+    return this.authService.getLoggingStatus(req, res);
   }
 
   @Post('/login') // POST auth/login
@@ -66,11 +67,11 @@ export class AuthController {
   }
   @Post('/add-answer') // POST auth/add-answer  //done
   addAnswer(
-    @Body() body: { user_id: string; answer: string; question_id: string },
+    @Body() body: { email: string; answer: string; question_id: string },
     @Res() res: Response,
   ) {
     return this.authService.addAnswer(
-      body.user_id,
+      body.email,
       body.answer,
       body.question_id,
       res,
