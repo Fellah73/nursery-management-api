@@ -37,7 +37,7 @@ export class MenuService {
       return {
         status: 'success',
         success: true,
-        data: organizedMenus,
+        menus: organizedMenus,
         statusCode: 200,
       };
     } catch (error) {

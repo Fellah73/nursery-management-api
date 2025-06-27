@@ -4,7 +4,7 @@ import { LoginDto, RegisterDto } from './dto/auth-dto';
 import * as bcrypt from 'bcrypt';
 import { env } from 'process';
 import * as jwt from 'jsonwebtoken';
-import { Response,Request } from 'express';
+import { Response, Request } from 'express';
 @Injectable()
 export class AuthService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -93,7 +93,7 @@ export class AuthService {
         return res.status(500).json({
           message: 'Erreur lors du hachage du mot de passe',
           success: false,
-          statusCode: 500
+          statusCode: 500,
         });
       }
       const newUser = await this.prismaService.user.create({
@@ -130,24 +130,33 @@ export class AuthService {
       });
     }
   }
-  logout(@Res() res: Response) {
+  logout(@Req() req: Request, @Res() res: Response) {
     try {
-      res.clearCookie('authToken');
+      const token = req.cookies?.authToken || null;
+      if (!token) {
+        return res.status(401).json({
+          message: 'No token provided',
+          success: false,
+        });
+      }
+
+      res.setHeader(
+        'Set-Cookie',
+        'authToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax',
+      );
       return res.status(200).json({
         message: 'Logout successful',
         success: true,
       });
     } catch (error) {
       return res.status(500).json({
-        message: 'Logout failed',
-        error: error.message || error,
+        message: error.message || error,
         success: false,
       });
     }
   }
   async getLoggingStatus(@Req() req: Request, @Res() res: Response) {
     try {
-  
       const token = req.cookies?.authToken || null;
 
       if (!token) {
@@ -170,7 +179,7 @@ export class AuthService {
           success: false,
         });
       }
-      
+
       // user without password
       const { password, ...userWithoutPassword } = user;
 

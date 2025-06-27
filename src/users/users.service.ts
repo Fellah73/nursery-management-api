@@ -1,4 +1,4 @@
-import { Body, Injectable, Query } from '@nestjs/common';
+import { Body, Injectable, Query, Res } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   UserDtoCreate,
@@ -395,6 +395,54 @@ export class UsersService {
         statusCode: 500,
         success: false,
       };
+    }
+  }
+  async getUserStatistics(@Res() res) {
+    try {
+      const totalUsers = await this.prismaService.user.count();
+      if (totalUsers === 0) {
+        return res.status(404).json({
+          message: 'No users found',
+          success: false,
+          statusCode: 404,
+        });
+      }
+
+      const parents = await this.prismaService.user.count({
+        where: { role: 'PARENT' },
+      });
+      const teachers = await this.prismaService.user.count({
+        where: { role: 'TEACHER' },
+      });
+      const admins = await this.prismaService.user.count({
+        where: { role: 'ADMIN' },
+      });
+      const superAdmins = await this.prismaService.user.count({
+        where: { role: 'SUPER_ADMIN' },
+      });
+
+      return res.status(200).json({
+        message: 'User statistics retrieved successfully',
+        users: {
+          totalUsers : totalUsers,
+          byRole: {
+            parents: parents,
+            teachers: teachers,
+            admins: admins,
+            superAdmins: superAdmins,
+          },
+        },
+        success: true,
+        statusCode: 200,
+      });
+    } catch (error) {
+      console.error('Error retrieving user statistics:', error);
+      return res.status(500).json({
+        message: 'An error occurred while retrieving user statistics',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      });
     }
   }
 

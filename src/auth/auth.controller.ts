@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth-dto';
 import { Request, Response } from 'express';
@@ -27,9 +27,9 @@ export class AuthController {
     return this.authService.register(body, res);
   }
 
-  @Post('/logout') // POST auth/logout
-  logout(@Res() res: Response) {
-    return this.authService.logout(res);
+  @Delete('/logout') // DELETE auth/logout
+  logout(@Req() req: Request, @Res() res: Response) {
+    return this.authService.logout(req, res);
   }
 
   @Get('/forgot-password') // GET auth/forgot-password  //done

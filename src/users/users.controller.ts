@@ -6,7 +6,9 @@ import {
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   UserDtoCreate,
   UserDtoGet,
@@ -20,31 +22,37 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get() // GET users/ only admin can access this route
-  getUsers(@Query() query: UserDtoGet) {  
+  getUsers(@Query() query: UserDtoGet) {
     return this.usersService.getUsers(query);
   }
   @Post() // POST users/ to create a new user
-  createUser(@Body() body: UserDtoCreate) { 
+  createUser(@Body() body: UserDtoCreate) {
     return this.usersService.createUser(body);
   }
+
+  @Get('/statistics') // GET users/statistics to get user statistics
+  getUserStatistics(@Res() res: Response) {
+    return this.usersService.getUserStatistics(res);
+  }
+
   @Get('/search') // GET users/search?search_query= to search users by name or email
-  searchUsers(@Query('search_query') search_query: string) { 
+  searchUsers(@Query('search_query') search_query: string) {
     return this.usersService.searchUsers(search_query);
   }
 
-  @Get(':id') // GET users/:id only admin  can access this route 
+  @Get(':id') // GET users/:id only admin  can access this route
   getUsersById(@Param('id') user_id: number) {
     return this.usersService.getUsersById(user_id);
   }
 
   @Patch(':id') // PATCH users/:id to update user details
-  updateUser(@Param('id') user_id: number, @Body() body: UserDtoUpdate) { 
+  updateUser(@Param('id') user_id: number, @Body() body: UserDtoUpdate) {
     return this.usersService.updateUser(user_id, body);
   }
 
   @Patch(':id/status') // PATCH users/:id/status to enable or disable an account
   updateUserStatus(
-    @Param('id') user_id: number, 
+    @Param('id') user_id: number,
     @Body() body: UserDtoUpdateStatus,
   ) {
     return this.usersService.updateUserStatus(Number(user_id), body);
