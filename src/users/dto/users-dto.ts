@@ -9,7 +9,18 @@ export class UserDtoGet {
 export class UserDtoUpdate {
   admin_id: number;
   email?: string;
-  password?: string;
+  phone?: string;
+  address?: string;
+  profile_picture?: string;
+}
+
+export class UserDtoUpdateProfile {
+  email?: string;
+  phone?: string;
+  address?: string;
+  profile_picture?: string;
+  name?: string;
+  familyName?: string;
 }
 
 export class UserDtoUpdateStatus {

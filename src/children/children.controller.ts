@@ -1,14 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ChildrenService } from './children.service';
-import { CreateChildDto } from './dto/children-dto';
+import { ChildrenDtoGet, CreateChildDto } from './dto/children-dto';
 
 @Controller('children')
 export class ChildrenController {
   constructor(private readonly childrenService: ChildrenService) {}
 
   @Get() // Get /children to retrieve all children
-  getChildren(@Query('admin_id') admin_id: string) {
-    return this.childrenService.getChildren(admin_id);
+  getChildren(@Query() query: ChildrenDtoGet) {
+    return this.childrenService.getChildren(query);
   }
 
   @Post() // Post /children to create a new child
@@ -35,6 +35,11 @@ export class ChildrenController {
   @Get(':id/medical-info') // Get /children/:id/medical-info to retrieve medical info by child ID
   getMedicalInfoByChildId(@Param('id') id: number) {
     return this.childrenService.getMedicalInfoByChildId(Number(id));
+  }
+
+  @Put(':id/:type') // Put /children/:id/type to update a child's type by ID
+  updateChildType(@Param('id') id: number, @Param('type') type: string,@Body() body: any) {
+    return this.childrenService.updateChildByType(Number(id), type, body);
   }
 
   @Get('by-parent/:parentId') // Get /children/by-parent/:parentId to retrieve children by parent ID

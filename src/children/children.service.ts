@@ -1,51 +1,64 @@
 import { Body, Injectable, Query } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateChildDto } from './dto/children-dto';
+import { ChildrenDtoGet, CreateChildDto } from './dto/children-dto';
 
 @Injectable()
 export class ChildrenService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async getChildren(@Query() admin_id: string) {
+  async getChildren(@Query() query: ChildrenDtoGet) {
     try {
-      if (!admin_id) {
-        return {
-          status: 'error',
-          message: 'Admin ID is required',
-          success: false,
-          statusCode: 400,
-        };
-      }
+      const admin_id = query.admin_id ? Number(query.admin_id) : 0;
+      const perPage = query.perPage ? Number(query.perPage) : 10;
+      const page = query.page && query.page > 0 ? Number(query.page) : 1;
 
-      const adminUser = await this.prismaService.user.findUnique({
-        where: { id: parseInt(admin_id) },
+      // check if user is an admin
+      const adminUser = await this.prismaService.user.findFirst({
+        where: { id: admin_id },
       });
 
-      if (
-        !adminUser ||
-        (adminUser.role !== 'ADMIN' && adminUser.role !== 'SUPER_ADMIN')
-      ) {
+      // Check if the user exists and is an admin
+      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
         return {
-          status: 'error',
-          message: 'Only admins can access this resource',
           success: false,
+          message: 'Unauthorized access to this route',
+          error: 'You must be an admin to access this route',
           statusCode: 403,
         };
       }
-      const children = await this.prismaService.children.findMany();
+
+      const skip = (page - 1) * perPage;
+
+      let roleFilter = {};
+
+      const children = await this.prismaService.children.findMany({
+        take: perPage && perPage !== 0 ? perPage : undefined,
+        skip: perPage !== 0 ? skip : undefined, // Only skip if we're using pagination,
+      });
+
+      // Count total users for pagination metadata
+      const totalChildren = await this.prismaService.children.count({});
+
+      // Return the response
       return {
-        status: 'success',
-        data: children,
+        message: 'Children retrieved successfully',
+        children: children,
         length: children.length,
+        pagination: {
+          total: totalChildren,
+          page: page,
+          perPage: perPage || 'All',
+          pages: perPage ? Math.ceil(totalChildren / perPage) : 1,
+        },
         success: true,
         statusCode: 200,
       };
     } catch (error) {
       return {
-        status: 'error',
-        message: error.message,
-        success: false,
+        message: 'An error occurred while retrieving children',
+        error: error.message,
         statusCode: 500,
+        success: false,
       };
     }
   }
@@ -130,15 +143,42 @@ export class ChildrenService {
       }
 
       // crate the child
+      // Transform allergies array to string format: "name1-category1, name2-category2"
+      let allergiesString = '';
+      if (
+        childData.allergies &&
+        Array.isArray(childData.allergies) &&
+        childData.allergies.length > 0
+      ) {
+        allergiesString = childData.allergies
+          .map((allergy) => `${allergy.category}-${allergy.name}`)
+          .join(',');
+      }
+
       const newChild = await this.prismaService.children.create({
         data: {
           full_name: childData.full_name,
           birth_date: childData.birth_date,
           age: age,
-          profile_picture: childData.profile_picture || 'null',
+          profile_picture: childData.profile_picture || null,
+          address: childData.address,
+          city: childData.city,
           gender: childData.gender,
-          parent_id: Number(childData.parent_id),
+          parent_id: Number(adminUser.id),
           entry_date: new Date().toISOString().split('T')[0],
+          emergency_contact: childData.emergency_contact_name || null,
+          emergency_phone: childData.emergency_contact_phone || null,
+          secondary_emergency_contact:
+            childData.secondary_emergency_contact_name || null,
+          secondary_emergency_phone:
+            childData.secondary_emergency_contact_phone || null,
+          class_group: childData.class_group,
+          blood_type: childData.blood_type,
+          medical_info: childData.information || null,
+          allergies: allergiesString,
+          special_needs: childData.besoins || null,
+          vaccination_status: childData.vaccination_status || null,
+          notes: childData.notes || null,
         },
       });
 
@@ -169,8 +209,6 @@ export class ChildrenService {
       }
 
       const searchTerm = name.trim();
-
-      console.log('Search term:', searchTerm);
       const children = await this.prismaService.children.findMany({
         where: {
           OR: [{ full_name: { contains: searchTerm, mode: 'insensitive' } }],
@@ -186,7 +224,7 @@ export class ChildrenService {
       }
       return {
         message: 'Children retrieved successfully',
-        data: children,
+        children: children,
         length: children.length,
         success: true,
         statusCode: 200,
@@ -375,6 +413,106 @@ export class ChildrenService {
           },
           byAgeGroup,
         },
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: error.message,
+        success: false,
+        statusCode: 500,
+      };
+    }
+  }
+  async updateChildByType(id: number, type: string, body: any) {
+    try {
+      if (!id || !type) {
+        return {
+          status: 'error',
+          message: 'Child ID and type are required',
+          success: false,
+          statusCode: 400,
+        };
+      }
+
+      // Check if child exists
+      const existingChild = await this.prismaService.children.findUnique({
+        where: { id: Number(id) },
+      });
+
+      if (!existingChild) {
+        return {
+          status: 'error',
+          message: 'Child not found',
+          success: false,
+          statusCode: 404,
+        };
+      }
+
+      // Prepare update data based on type
+      let updateData = {};
+
+      switch (type.toLowerCase()) {
+        case 'contact':
+          updateData = {
+            emergency_contact:
+              body.emergency_contact || existingChild.emergency_contact,
+            emergency_phone:
+              body.emergency_phone || existingChild.emergency_phone,
+            secondary_emergency_contact:
+              body.secondary_emergency_contact ||
+              existingChild.secondary_emergency_contact,
+            secondary_emergency_phone:
+              body.secondary_emergency_phone ||
+              existingChild.secondary_emergency_phone,
+          };
+          break;
+        case 'address':
+          updateData = {
+            address: body.address || existingChild.address,
+            city: body.city || existingChild.city,
+          };
+          break;
+        case 'medical_info':
+          updateData = {
+            medical_info: body.medical_info ,
+          };
+          break;
+        case 'special_needs':
+          updateData = {
+            special_needs: body.special_needs ,
+          };
+          break;
+        case 'notes':
+          updateData = {
+            notes: body.notes,
+          };
+          break;
+        case 'vaccination_status':
+          updateData = {
+            vaccination_status:
+              body.vaccination_status,
+          };
+          break;
+        default:
+          return {
+            status: 'error',
+            message:
+              'Invalid update type. Supported types: contact, address, medical, personal',
+            success: false,
+            statusCode: 400,
+          };
+      }
+
+      const updatedChild = await this.prismaService.children.update({
+        where: { id: Number(id) },
+        data: updateData,
+      });
+
+      return {
+        status: 'success',
+        data: updatedChild,
         success: true,
         statusCode: 200,
       };
