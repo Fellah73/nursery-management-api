@@ -24,6 +24,11 @@ export class TeachersController {
     return this.teachersService.createTeacher(body);
   }
 
+  @Get('available') // GET users/available to get all available teachers
+  getAvailableTeachers(@Query('admin_id') admin_id: number) {
+    return this.teachersService.getAvailableTeachers(admin_id);
+  }
+
   @Get('/search') // GET users/search?search_query= to search users by name or email
   searchTeachers(
     @Query('search_query') search_query: string,
@@ -41,4 +46,6 @@ export class TeachersController {
   getTeatcherById(@Param('id') user_id: number) {
     return this.teachersService.getTeacherById(user_id);
   }
+
+  
 }

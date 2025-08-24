@@ -22,11 +22,13 @@ model User {
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
   isActive        Boolean   @default(true)
-  speciality       String?   @db.VarChar
+  speciality      String?   @db.VarChar
 
   // Relations
   children      Children[]
   userResponses UserResponse[]
+  // Relation pour les enseignants (si le rôle est TEACHER)
+  classroom     Classroom?
 
   @@map("users")
 }
@@ -55,14 +57,97 @@ model Children {
   special_needs      String? @db.Text
   vaccination_status String? @db.VarChar
 
-  entry_date String?  @db.VarChar
+  entry_date String? @db.VarChar
   notes      String? @db.Text
 
   created_at DateTime @default(now())
 
+  // Relations
   parent User @relation(fields: [parent_id], references: [id])
 
+  // Relation inverse pour les affectations
+  assignments Assignment[]
+
   @@map("children")
+}
+
+model Classroom {
+  id       Int      @id @default(autoincrement())
+  name     String   @db.VarChar(100)
+  category Category // BEBE, PETIT, MOYEN, GRAND
+  ageMin   Int
+  ageMax   Int
+  capacity Int?
+
+  // Relation avec l'enseignant (un seul enseignant par classe)
+  teacherId Int?  @unique // Un enseignant peut être assigné à une seule classe
+  teacher   User? @relation(fields: [teacherId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  assignments     Assignment[] // Pour l'affectation des enfants
+  schedulePeriods SchedulePeriod[]
+
+  @@map("classrooms")
+}
+
+// Table d'affectation pour gérer l'assignation des enfants aux classes
+model Assignment {
+  id          Int       @id @default(autoincrement())
+  classroomId Int
+  childId     Int
+  startDate   DateTime  @default(now()) // Date de début d'affectation
+  endDate     DateTime? // Date de fin (optionnelle, pour les changements de classe)
+  isActive    Boolean   @default(true) // Statut de l'affectation
+  notes       String?   @db.Text // Notes sur l'affectation
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  child     Children  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  // Un enfant ne peut être assigné qu'à une seule classe active à la fois
+  @@unique([childId, isActive])
+  @@map("assignments")
+}
+
+model SchedulePeriod {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  classroomId Int
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classroom Classroom  @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  schedules Schedule[]
+
+  @@map("schedule_periods")
+}
+
+model Schedule {
+  id               Int       @id @default(autoincrement())
+  schedulePeriodId Int
+  dayOfWeek        DayOfWeek
+  startTime        String    @db.VarChar(5)
+  endTime          String    @db.VarChar(5)
+  activity         String    @db.VarChar(255)
+  location         String?   @db.VarChar(100)
+  isActive         Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedulePeriod SchedulePeriod @relation(fields: [schedulePeriodId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
 }
 
 model Menu {
@@ -132,4 +217,19 @@ enum MenuType {
   Breakfast
   Lunch
   Gouter
+}
+
+enum Category {
+  BEBE
+  PETIT
+  MOYEN
+  GRAND
+}
+
+enum DayOfWeek {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
 }

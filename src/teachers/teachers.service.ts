@@ -38,6 +38,20 @@ export class TeachersService {
             in: ['TEACHER'],
           },
         },
+        include: {
+          classroom: {
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              _count: {
+                select: {
+                  assignments: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       // Count total teachers for pagination metadata
@@ -157,6 +171,64 @@ export class TeachersService {
     } catch (error) {
       return {
         message: error.message || 'An error occurred while creating the user',
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  async getAvailableTeachers(admin_id: number) {
+    try {
+      if (!admin_id || isNaN(admin_id) || admin_id <= 0) {
+        return {
+          message: 'Invalid admin ID',
+          statusCode: 400,
+          success: false,
+        };
+      }
+      const adminUser = await this.prismaService.user.findFirst({
+        where: { id: Number(admin_id) },
+      });
+      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
+        return {
+          success: false,
+          message: 'Unauthorized access to this route',
+          error: 'You must be an admin to access this route',
+          statusCode: 403,
+        };
+      }
+
+      const availableTeachers = await this.prismaService.user.findMany({
+        where: {
+          role: 'TEACHER',
+          classroom: null,
+        },
+      });
+
+      if (availableTeachers.length === 0) {
+        return {
+          message: 'No available teachers found',
+          success: true,
+          statusCode: 204,
+          availableTeachers: [],
+        };
+      }
+
+      // Exclude password from the response
+      const teachersWithoutPassword = availableTeachers.map(
+        ({ password, ...user }) => user,
+      );
+
+      return {
+        message: 'Available teachers retrieved successfully',
+        availableTeachers: teachersWithoutPassword,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while retrieving available teachers',
+        error: error.message,
         statusCode: 500,
         success: false,
       };
