@@ -138,6 +138,7 @@ model Schedule {
   dayOfWeek        DayOfWeek
   startTime        String    @db.VarChar(5)
   endTime          String    @db.VarChar(5)
+  category         String?   @db.VarChar(50)
   activity         String    @db.VarChar(255)
   location         String?   @db.VarChar(100)
   isActive         Boolean   @default(true)

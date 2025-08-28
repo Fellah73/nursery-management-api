@@ -84,13 +84,13 @@ export class SchedulesService {
         data: {
           classroomId,
           name:
-            type === 'current'
-              ? `${classroom.name}-${body.startDate.split('T')[0]}-${body.endDate ? body.endDate.split('T')[0] : 'open'}`
-              : body.name!,
-          startDate: new Date(body.startDate + 'T00:00:00.000Z'),
+        type === 'current'
+          ? `${classroom.name}-${body.startDate || 'open'}-${body.endDate || 'open'}`
+          : body.name!,
+          startDate: new Date((body.startDate || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z'),
           endDate: body.endDate
-            ? new Date(body.endDate + 'T00:00:00.000Z')
-            : null,
+        ? new Date(body.endDate + 'T00:00:00.000Z')
+        : null,
           isActive: type === 'current' ? true : false,
         },
       });
@@ -102,7 +102,9 @@ export class SchedulesService {
       };
     } catch (error) {
       return {
-        message: 'An error occurred while creating the assignment',
+        message:
+          error.message ||
+          'An error occurred while creating the schedule period',
         error: error.message,
         statusCode: 500,
         success: false,
@@ -335,7 +337,6 @@ export class SchedulesService {
 
   async updateScheduleSlot(
     periodId: number,
-    slotId: number,
     adminId: number,
     body: UpdateScheduleSlotDto,
   ) {
@@ -359,14 +360,6 @@ export class SchedulesService {
           statusCode: 400,
         };
       }
-      if (!slotId) {
-        return {
-          success: false,
-          message: 'Slot ID is required',
-          error: 'Slot ID is missing or invalid',
-          statusCode: 400,
-        };
-      }
 
       const existingPeriod = await this.prismaService.schedulePeriod.findUnique(
         {
@@ -382,33 +375,36 @@ export class SchedulesService {
         };
       }
 
-      const existingSlot = await this.prismaService.schedule.findFirst({
-        where: { id: slotId, schedulePeriodId: periodId },
-      });
-      if (!existingSlot) {
+      if (!body.slots || body.slots.length === 0) {
         return {
           success: false,
-          message: 'Schedule slot not found',
-          error:
-            'The specified schedule slot does not exist in the given period',
-          statusCode: 404,
+          message: 'No slots provided',
+          error: 'The slots array is empty or missing',
+          statusCode: 400,
         };
       }
 
-      const updatedSlot = await this.prismaService.schedule.update({
-        where: { id: slotId },
-        data: {
-          dayOfWeek: body.dayOfWeek || existingSlot.dayOfWeek,
-          startTime: body.startTime || existingSlot.startTime,
-          endTime: body.endTime || existingSlot.endTime,
-          activity: body.activity || existingSlot.activity,
-          location: body.location || existingSlot.location,
-        },
+      const deletedSlots = await this.prismaService.schedule.deleteMany({
+        where: { schedulePeriodId: periodId },
       });
 
+      // create new slots
+      for (const slot of body.slots) {
+        await this.prismaService.schedule.create({
+          data: {
+            schedulePeriodId: periodId,
+            dayOfWeek: slot.dayOfWeek as DayOfWeek, // Type casting, ensure your DTO restricts values
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            activity: slot.activity,
+            location: slot.location || null,
+            category: slot.category || null,
+          },
+        });
+      }
+
       return {
-        message: 'Schedule slot updated successfully',
-        slot: updatedSlot,
+        message: 'Schedule slots updated successfully',
         success: true,
         statusCode: 200,
       };
@@ -580,6 +576,7 @@ export class SchedulesService {
               endTime: true,
               activity: true,
               location: true,
+              category: true,
             },
           },
         },
@@ -625,6 +622,7 @@ export class SchedulesService {
           startDate: activePeriod.startDate,
           endDate: activePeriod.endDate,
           slots: weeklySchedule,
+          classroom: classroom,
         },
         statusCode: 200,
       };
@@ -748,6 +746,8 @@ export class SchedulesService {
 
       const skip = (page - 1) * perPage;
 
+      await this.handleScheduleActivation();
+
       const schedulePeriods = await this.prismaService.schedulePeriod.findMany({
         take: perPage && perPage !== 0 ? perPage : undefined,
         skip: perPage !== 0 ? skip : undefined, // Only skip if we're using pagination
@@ -830,6 +830,62 @@ export class SchedulesService {
     } catch (error) {
       return {
         message: 'An error occurred while retrieving schedule periods',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  async getClassroomsWithoutSchedule(adminId: number) {
+    try {
+      const adminUser = await this.prismaService.user.findFirst({
+        where: { id: Number(adminId) },
+      });
+      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
+        return {
+          success: false,
+          message: 'Unauthorized access to this route',
+          error: 'You must be an admin to access this route',
+          statusCode: 403,
+        };
+      }
+
+      await this.handleScheduleActivation();
+
+      // Get all classrooms
+      const allClassrooms = await this.prismaService.classroom.findMany({
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          ageMin: true,
+          ageMax: true,
+          capacity: true,
+          _count: {
+            select: {
+              schedulePeriods: true,
+              assignments: true,
+            },
+          },
+        },
+      });
+
+      // Get classrooms with no schedules
+      const classroomsWithoutSchedule = allClassrooms.filter(
+        (classroom) => !classroom._count.schedulePeriods,
+      );
+
+      return {
+        message: 'Classrooms without schedules retrieved successfully',
+        classrooms: classroomsWithoutSchedule,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message:
+          'An error occurred while retrieving classrooms without schedules',
         error: error.message,
         statusCode: 500,
         success: false,

@@ -23,11 +23,14 @@ export class CreateScheduleSlotsDto {
 }
 
 export class UpdateScheduleSlotDto {
-    dayOfWeek?: DayOfWeek;
-    startTime?: string;
-    endTime?: string;
-    activity?: string;
-    location?: string;
+    slots: {
+        dayOfWeek: DayOfWeek;
+        startTime: string;
+        endTime: string;
+        activity: string;
+        location?: string;
+        category?: string;
+    }[];
 }
 
 export class ScheduleDtoGet {

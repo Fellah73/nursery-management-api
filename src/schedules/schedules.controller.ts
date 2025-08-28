@@ -21,11 +21,18 @@ import {
 export class SchedulesController {
   constructor(private readonly schedulesService: SchedulesService) {}
 
+  // Global schedule operations
   @Get('/period')
   async getGlobalSchedulePeriod(@Query() query: ScheduleDtoGet) {
     return this.schedulesService.getGlobalSchedulePeriods(query);
   }
 
+  @Get('/classroom/unscheduled')
+  async getClassroomsWithoutSchedule(@Query('admin_id') adminId: string) {
+    return this.schedulesService.getClassroomsWithoutSchedule(Number(adminId));
+  }
+
+  // Classroom-level operations
   @Get('/classroom/:classroomId')
   async getSchedulePeriods(
     @Param('classroomId') classroomId: string,
@@ -61,19 +68,7 @@ export class SchedulesController {
     );
   }
 
-  @Post('classroom/period/:periodId/slots/bulk')
-  async createScheduleSlots(
-    @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
-    @Body() body: CreateScheduleSlotsDto,
-  ) {
-    return this.schedulesService.createScheduleSlots(
-      Number(periodId),
-      Number(adminId),
-      body,
-    );
-  }
-
+  // Period-level operations
   @Patch('classroom/period/:periodId')
   async updateSchedulePeriod(
     @Param('periodId') periodId: string,
@@ -87,21 +82,6 @@ export class SchedulesController {
     );
   }
 
-  @Patch('classroom/period/:periodId/slots/:slotId')
-  async updateScheduleSlot(
-    @Param('periodId') periodId: string,
-    @Param('slotId') slotId: string,
-    @Query('admin_id') adminId: string,
-    @Body() body: UpdateScheduleSlotDto,
-  ) {
-    return this.schedulesService.updateScheduleSlot(
-      Number(periodId),
-      Number(slotId),
-      Number(adminId),
-      body,
-    );
-  }
-
   @Delete('classroom/period/:periodId')
   async deleteSchedulePeriod(
     @Param('periodId') periodId: string,
@@ -110,6 +90,33 @@ export class SchedulesController {
     return this.schedulesService.deleteSchedulePeriod(
       Number(periodId),
       Number(adminId),
+    );
+  }
+
+  // Slot-level operations
+  @Post('classroom/period/:periodId/slots/bulk')
+  async createScheduleSlots(
+    @Param('periodId') periodId: string,
+    @Query('admin_id') adminId: string,
+    @Body() body: CreateScheduleSlotsDto,
+  ) {
+    return this.schedulesService.createScheduleSlots(
+      Number(periodId),
+      Number(adminId),
+      body,
+    );
+  }
+
+  @Patch('period/:periodId/slots/bulk')
+  async updateScheduleSlot(
+    @Param('periodId') periodId: string,
+    @Query('admin_id') adminId: string,
+    @Body() body: UpdateScheduleSlotDto,
+  ) {
+    return this.schedulesService.updateScheduleSlot(
+      Number(periodId),
+      Number(adminId),
+      body,
     );
   }
 }
