@@ -23,8 +23,8 @@ export class SchedulesController {
 
   // Global schedule operations
   @Get('/period')
-  async getGlobalSchedulePeriod(@Query() query: ScheduleDtoGet) {
-    return this.schedulesService.getGlobalSchedulePeriods(query);
+  async getGlobalSchedulePeriod(@Query() query: ScheduleDtoGet,@Query('type') type: string) {
+    return this.schedulesService.getGlobalSchedulePeriods(query, type);
   }
 
   @Get('/classroom/unscheduled')

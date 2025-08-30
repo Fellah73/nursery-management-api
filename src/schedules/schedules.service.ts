@@ -84,13 +84,16 @@ export class SchedulesService {
         data: {
           classroomId,
           name:
-        type === 'current'
-          ? `${classroom.name}-${body.startDate || 'open'}-${body.endDate || 'open'}`
-          : body.name!,
-          startDate: new Date((body.startDate || new Date().toISOString().split('T')[0]) + 'T00:00:00.000Z'),
+            type === 'current'
+              ? `${classroom.name}-${body.startDate || 'open'}-${body.endDate || 'open'}`
+              : body.name!,
+          startDate: new Date(
+            (body.startDate || new Date().toISOString().split('T')[0]) +
+              'T00:00:00.000Z',
+          ),
           endDate: body.endDate
-        ? new Date(body.endDate + 'T00:00:00.000Z')
-        : null,
+            ? new Date(body.endDate + 'T00:00:00.000Z')
+            : null,
           isActive: type === 'current' ? true : false,
         },
       });
@@ -465,9 +468,6 @@ export class SchedulesService {
           startDate: true,
           endDate: true,
           isActive: true,
-          schedules: {
-            orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
-          },
         },
         orderBy: {
           startDate: 'asc',
@@ -495,7 +495,6 @@ export class SchedulesService {
             startDate: period.startDate,
             endDate: period.endDate,
             isActive: period.isActive,
-            slots: period.schedules,
           })),
           upcoming: upcomingSchedules.map((period) => ({
             id: period.id,
@@ -503,7 +502,6 @@ export class SchedulesService {
             startDate: period.startDate,
             endDate: period.endDate,
             isActive: period.isActive,
-            slots: period.schedules,
           })),
         },
         success: true,
@@ -727,7 +725,7 @@ export class SchedulesService {
     return;
   }
 
-  async getGlobalSchedulePeriods(query: ScheduleDtoGet) {
+  async getGlobalSchedulePeriods(query: ScheduleDtoGet, type: string) {
     try {
       const perPage = query.perPage ? Number(query.perPage) : 10;
       const page = query.page && query.page > 0 ? Number(query.page) : 1;
@@ -748,58 +746,115 @@ export class SchedulesService {
 
       await this.handleScheduleActivation();
 
-      const schedulePeriods = await this.prismaService.schedulePeriod.findMany({
-        take: perPage && perPage !== 0 ? perPage : undefined,
-        skip: perPage !== 0 ? skip : undefined, // Only skip if we're using pagination
-        select: {
-          id: true,
-          name: true,
-          startDate: true,
-          endDate: true,
-          classroom: {
-            select: {
-              id: true,
-              name: true,
-              category: true,
-              ageMin: true,
-              ageMax: true,
-              capacity: true,
-              teacher: {
-                select: {
-                  id: true,
-                  familyName: true,
-                  email: true,
-                  profile_picture: true,
-                  gender: true,
+      let schedulePeriods;
+
+      if (type === 'active') {
+        schedulePeriods = await this.prismaService.schedulePeriod.findMany({
+          take: perPage && perPage !== 0 ? perPage : undefined,
+          skip: perPage !== 0 ? skip : undefined, // Only skip if we're using pagination
+          select: {
+            id: true,
+            name: true,
+            startDate: true,
+            endDate: true,
+            classroom: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                ageMin: true,
+                ageMax: true,
+                capacity: true,
+                teacher: {
+                  select: {
+                    id: true,
+                    familyName: true,
+                    email: true,
+                    profile_picture: true,
+                    gender: true,
+                  },
+                },
+                _count: {
+                  select: {
+                    assignments: true,
+                  },
                 },
               },
-              _count: {
-                select: {
-                  assignments: true,
+            },
+            _count: {
+              select: {
+                schedules: true,
+              },
+            },
+          },
+          orderBy: {
+            startDate: 'desc',
+          },
+          where: {
+            isActive: true,
+          },
+        });
+      } else {
+        schedulePeriods = await this.prismaService.classroom.findMany({
+          take: perPage && perPage !== 0 ? perPage : undefined,
+          skip: perPage !== 0 ? skip : undefined,
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            ageMin: true,
+            ageMax: true,
+            capacity: true,
+            teacher: {
+              select: {
+                id: true,
+                familyName: true,
+                email: true,
+                profile_picture: true,
+                gender: true,
+              },
+            },
+            _count: {
+              select: {
+                assignments: true,
+                schedulePeriods: {
+                  where: {
+                    isActive: false,
+                  },
                 },
               },
             },
           },
-          _count: {
-            select: {
-              schedules: true,
+          where: {
+            schedulePeriods: {
+              some: {
+                isActive: false,
+              },
             },
           },
-        },
-        orderBy: {
-          startDate: 'desc',
-        },
-        where: {
-          isActive: true,
-        },
-      });
+          orderBy: {
+            name: 'asc',
+          },
+        });
+      }
 
       const classRooms = await this.prismaService.classroom.count();
+
+      const totalClassRoomsWithSchedules =
+        await this.prismaService.classroom.count({
+          where: {
+            schedulePeriods: {
+              some: {
+                isActive: type === 'active' ? true : false,
+              },
+            },
+          },
+        });
 
       const totalSlots = await this.prismaService.schedule.count({
         where: {
           schedulePeriod: {
-            isActive: true,
+            isActive: type === 'active' ? true : false,
           },
         },
       });
@@ -807,7 +862,7 @@ export class SchedulesService {
       const totalActiveSchedules =
         await this.prismaService.schedulePeriod.count({
           where: {
-            isActive: true,
+            isActive: type === 'active' ? true : false,
           },
         });
 
@@ -823,6 +878,7 @@ export class SchedulesService {
           totalSlots: totalSlots,
           totalClassrooms: classRooms,
           totalActiveSchedules: totalActiveSchedules,
+          totalClassRoomsWithSchedules: totalClassRoomsWithSchedules,
         },
         success: true,
         statusCode: 200,
