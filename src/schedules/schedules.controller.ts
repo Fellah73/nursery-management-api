@@ -26,10 +26,16 @@ export class SchedulesController {
   async getGlobalSchedulePeriod(@Query() query: ScheduleDtoGet,@Query('type') type: string) {
     return this.schedulesService.getGlobalSchedulePeriods(query, type);
   }
+  
 
   @Get('/classroom/unscheduled')
   async getClassroomsWithoutSchedule(@Query('admin_id') adminId: string) {
     return this.schedulesService.getClassroomsWithoutSchedule(Number(adminId));
+  }
+
+  @Get('period/:periodId')
+  async getSchedulePeriodById(@Param('periodId') periodId: string, @Query('admin_id') adminId: string) {
+    return this.schedulesService.getSchedulePeriodById(Number(periodId), Number(adminId));
   }
 
   // Classroom-level operations

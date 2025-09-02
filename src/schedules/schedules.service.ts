@@ -948,4 +948,119 @@ export class SchedulesService {
       };
     }
   }
+
+  async getSchedulePeriodById(periodId: number, adminId: number) {
+    try {
+      const adminUser = await this.prismaService.user.findFirst({
+        where: { id: Number(adminId) },
+      });
+      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
+        return {
+          success: false,
+          message: 'Unauthorized access to this route',
+          error: 'You must be an admin to access this route',
+          statusCode: 403,
+        };
+      }
+      if (!periodId) {
+        return {
+          success: false,
+          message: 'Schedule period ID is required',
+          error: 'Schedule period ID is missing or invalid',
+          statusCode: 400,
+        };
+      }
+
+      const classroom = await this.prismaService.classroom.findFirst({
+        where: { schedulePeriods: { some: { id: periodId } } },
+      });
+
+      if (!classroom) {
+        return {
+          success: false,
+          message: 'Classroom not found',
+          error: 'The specified classroom does not exist',
+          statusCode: 404,
+        };
+      }
+
+      await this.handleScheduleActivation();
+
+      const schedulePeriods = await this.prismaService.schedulePeriod.findMany({
+        where: {
+          id: periodId,
+        },
+        select: {
+          id: true,
+          name: true,
+          startDate: true,
+          endDate: true,
+          isActive: true,
+          schedules: {
+            orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+            select: {
+              id: true,
+              dayOfWeek: true,
+              startTime: true,
+              endTime: true,
+              activity: true,
+              location: true,
+              category: true,
+            },
+          },
+        },
+        orderBy: {
+          startDate: 'asc',
+        },
+      });
+
+      console.log('Active schedule periods:', schedulePeriods);
+
+      if (schedulePeriods.length === 0) {
+        return {
+          success: false,
+          message: 'No active schedule period found for this classroom',
+          error: 'There are no active schedule periods',
+          statusCode: 404,
+        };
+      }
+
+      const activePeriod = schedulePeriods[0];
+
+      const weeklySchedule = {
+        SUNDAY: [] as typeof activePeriod.schedules,
+        MONDAY: [] as typeof activePeriod.schedules,
+        TUESDAY: [] as typeof activePeriod.schedules,
+        WEDNESDAY: [] as typeof activePeriod.schedules,
+        THURSDAY: [] as typeof activePeriod.schedules,
+      };
+
+      for (const slot of activePeriod.schedules) {
+        if (weeklySchedule[slot.dayOfWeek]) {
+          weeklySchedule[slot.dayOfWeek].push(slot);
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Weekly schedule retrieved successfully',
+        weeklySchedule: {
+          id : activePeriod.id,
+          name: activePeriod.name,
+          startDate: activePeriod.startDate,
+          endDate: activePeriod.endDate,
+          slots: weeklySchedule,
+          classroom: classroom,
+        },
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while retrieving the weekly schedule',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
 }

@@ -1,132 +1,100 @@
-import { Body, Injectable, Param } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateMenuDto, UpdateMenuDto } from './dto/menu-dto';
-import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { CreateMenuMealsDto, CreateMenuPeriodDto } from './dto/menu-dto';
+import { Category } from 'generated/prisma';
 
 @Injectable()
 export class MenuService {
   constructor(private readonly prismaService: PrismaService) {}
-
-  async getTodayMenu() {
+  async getMenuPeriods(admin_id: string) {
     try {
-      const today = new Date();
-      const todayDate = today.toISOString().split('T')[0];
-      const todayMenus = await this.prismaService.menu.findMany({
-        where: {
-          date: todayDate,
-        },
-      });
-
-      if (!todayMenus || todayMenus.length === 0) {
+      if (!admin_id) {
         return {
-          status: 'error',
-          message: 'No menu found for today',
+          status: 400,
+          message: 'admin_id is required',
           success: false,
-          statusCode: 404,
+        };
+      }
+      const admin = await this.prismaService.user.findUnique({
+        where: { id: Number(admin_id) },
+      });
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
+        return {
+          status: 403,
+          message: 'You are not authorized to perform this action',
+          success: false,
         };
       }
 
-      // Organize menus by type
-      const organizedMenus = {
-        BREAKFAST: todayMenus.find((menu) => menu.type === 'Breakfast') || null,
-        LUNCH: todayMenus.find((menu) => menu.type === 'Lunch') || null,
-        GOUTER: todayMenus.find((menu) => menu.type === 'Gouter') || null,
-      };
+      await this.handleMenusActivation();
 
-      return {
-        status: 'success',
-        success: true,
-        menus: organizedMenus,
-        statusCode: 200,
-      };
-    } catch (error) {
-      return {
-        status: 'error',
-        message: "An error occurred while fetching today's menu",
-        success: false,
-        statusCode: 500,
-      };
-    }
-  }
-
-  async getWeekMenu() {
-    try {
-      const today = new Date();
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay());
-
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 4);
-
-      const weekMenus = await this.prismaService.menu.findMany({
+      const menuPeriods = await this.prismaService.menuPeriod.findMany({
         where: {
-          date: {
-            gte: startOfWeek.toISOString().split('T')[0],
-            lte: endOfWeek.toISOString().split('T')[0],
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          startDate: true,
+          endDate: true,
+          category: true,
+          menus: {
+            select: {
+              dayOfWeek: true,
+            },
+            orderBy: { dayOfWeek: 'asc' },
           },
         },
-        orderBy: {
-          date: 'asc',
-        },
+        orderBy: { category: 'asc' },
       });
 
-      if (!weekMenus || weekMenus.length === 0) {
-        return {
-          status: 'error',
-          message: 'No menu found for this week',
-          success: false,
-          statusCode: 404,
-        };
-      }
+      // Add unique day count for each menu period
+      const menuPeriodsWithDayCount = menuPeriods.map((period) => ({
+        ...period,
+        _count: {
+          menus: period.menus.length,
+          uniqueDays: new Set(period.menus.map((menu) => menu.dayOfWeek)).size,
+        },
+      }));
 
-      const organizedMenus = weekMenus.reduce((acc, menu) => {
-        if (!acc[menu.date]) {
-          acc[menu.date] = {
-            date: menu.date,
-            day: menu.day,
-            meals: {
-              Breakfast: null,
-              Lunch: null,
-              Gouter: null,
-            },
-          };
-        }
-
-        acc[menu.date].meals[menu.type] = menu;
-
-        return acc;
-      }, {});
-
-      const result = Object.values(organizedMenus);
+      // menu periods grouped by category
+      const groupedMenuPeriods = menuPeriodsWithDayCount.reduce(
+        (acc, period) => {
+          if (!acc[period.category]) {
+            acc[period.category] = [];
+          }
+          acc[period.category].push(period);
+          return acc;
+        },
+        {},
+      );
 
       return {
-        status: 'success',
+        status: 200,
+        message: 'Menu periods retrieved successfully',
         success: true,
-        data: result,
-        statusCode: 200,
+        menuPeriodsByCategory: groupedMenuPeriods,
       };
     } catch (error) {
       return {
-        status: 'error',
-        message: 'An error occurred while fetching weekly menus',
+        status: 500,
+        message: error.message || 'Internal server error',
         success: false,
-        statusCode: 500,
       };
     }
   }
 
-  async createMenu(
-    @Param('admin_id') admin_id: string,
-    @Body() body: CreateMenuDto,
+  async createMenuPeriod(
+    body: CreateMenuPeriodDto,
+    admin_id: string,
+    type: string,
   ) {
     try {
       if (!admin_id) {
         return {
-          status: 'error',
-          message: 'Admin ID is required',
+          status: 400,
+          message: 'admin_id is required',
           success: false,
-          statusCode: 400,
         };
       }
 
@@ -134,155 +102,309 @@ export class MenuService {
         where: { id: Number(admin_id) },
       });
 
-      if (!admin) {
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
         return {
-          status: 'error',
-          message: 'Admin not found',
+          status: 403,
+          message: 'You are not authorized to perform this action',
           success: false,
-          statusCode: 404,
         };
       }
 
-      if (admin.role !== 'ADMIN' && admin.role !== 'SUPER_ADMIN') {
+      const category = body.category;
+
+      if (!(category in Category)) {
         return {
-          status: 'error',
-          message: 'Unauthorized access to create menu',
+          status: 400,
+          message: `Invalid category. Valid categories are: ${Object.values(Category).join(', ')}`,
           success: false,
-          statusCode: 403,
         };
       }
-
-      const existingMenu = await this.prismaService.menu.findFirst({
+      await this.handleMenusActivation();
+      const existingPeriod = await this.prismaService.menuPeriod.findFirst({
         where: {
-          date: new Date().toISOString().split('T')[0],
-          type: body.type,
-        },
-      });
-      if (existingMenu) {
-        return {
-          status: 'error',
-          message: `${body.type} of today already exists`,
-          success: false,
-          statusCode: 400,
-        };
-      }
-      const todayMenu = await this.prismaService.menu.create({
-        data: {
-          date: new Date().toISOString().split('T')[0],
-          day: format(new Date(), 'EEEE', { locale: fr }),
-          type: body.type,
-          starter: body.starter ?? '',
-          main_course: body.main_course ?? '',
-          side_dish: body.side_dish ?? '',
-          dessert: body.dessert ?? '',
-          drink: body.drink ?? '',
-          snack: body.snack ?? '',
-          special_note: body.special_note ?? '',
+          category: category,
+          isActive: true,
         },
       });
 
-      if (!todayMenu) {
+      if (existingPeriod && type === 'current') {
         return {
-          status: 'error',
-          message: 'Failed to create menu',
+          status: 400,
+          message: `An active menu period for category ${category} already exists.`,
           success: false,
-          statusCode: 500,
+        };
+      }
+
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+
+      const newMenuPeriod = await this.prismaService.menuPeriod.create({
+        data: {
+          name:
+            type === 'current'
+              ? `${category}-${body.startDate || new Date().toISOString().split('T')[0]}--${body.endDate || new Date().toISOString().split('T')[0]}`
+              : body.name!,
+          startDate: new Date(
+            (body.startDate || new Date().toISOString().split('T')[0]) +
+              'T00:00:00.000Z',
+          ),
+          endDate: body.endDate
+            ? new Date(body.endDate + 'T00:00:00.000Z')
+            : null,
+          category: body.category!,
+          isActive: type === 'current' ? true : false,
+        },
+      });
+      if (!newMenuPeriod) {
+        return {
+          status: 500,
+          message: 'Failed to create menu period',
+          success: false,
         };
       }
 
       return {
-        status: 'success',
-        message: 'Menu created successfully',
+        status: 201,
+        message: 'Menu period created successfully',
         success: true,
-        statusCode: 201,
+        data: newMenuPeriod,
       };
     } catch (error) {
       return {
-        status: 'error',
-        message: 'An error occurred while creating the menu',
+        status: 500,
+        message: error.message || 'Internal server error',
         success: false,
-        statusCode: 500,
       };
     }
   }
 
-  async updateMenu(@Param('id') id: string, @Body() body: UpdateMenuDto) {
+  async deleteMenuPeriod(admin_id: string, periodId: string) {
     try {
-      const menu = await this.prismaService.menu.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!menu) {
+      if (!admin_id) {
         return {
-          status: 'error',
-          message: 'Menu not found',
+          status: 400,
+          message: 'admin_id is required',
           success: false,
-          statusCode: 404,
+        };
+      }
+      const admin = await this.prismaService.user.findUnique({
+        where: { id: Number(admin_id) },
+      });
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
+        return {
+          status: 403,
+          message: 'You are not authorized to perform this action',
+          success: false,
         };
       }
 
-      const updatedMenu = await this.prismaService.menu.update({
-        where: { id: Number(id) },
-        data: {
-          starter: body.starter ?? menu.starter,
-          main_course: body.main_course ?? menu.main_course,
-          side_dish: body.side_dish ?? menu.side_dish,
-          dessert: body.dessert ?? menu.dessert,
-          drink: body.drink ?? menu.drink,
-          snack: body.snack ?? menu.snack,
-          special_note: body.special_note ?? menu.special_note,
-        },
+      await this.handleMenusActivation();
+      const menuPeriod = await this.prismaService.menuPeriod.findUnique({
+        where: { id: Number(periodId) },
+      });
+      if (!menuPeriod) {
+        return {
+          status: 404,
+          message: 'Menu period not found',
+          success: false,
+        };
+      }
+
+      // delete all the meals associated with this period
+      await this.prismaService.menu.deleteMany({
+        where: { menuPeriodId: Number(periodId) },
+      });
+
+      // delete the period
+      await this.prismaService.menuPeriod.delete({
+        where: { id: Number(periodId) },
       });
 
       return {
-        status: 'success',
-        message: 'Menu updated successfully',
+        status: 200,
+        message: 'Menu period deleted successfully',
         success: true,
-        data: updatedMenu,
-        statusCode: 200,
       };
     } catch (error) {
       return {
-        status: 'error',
-        message: 'An error occurred while updating the menu',
+        status: 500,
+        message: error.message || 'Internal server error',
         success: false,
-        statusCode: 500,
       };
     }
   }
 
-  async deleteMenu(@Param('id') id: string) {
+  async createMenusBulk(
+    body: CreateMenuMealsDto,
+    admin_id: string,
+    periodId: string,
+  ) {
     try {
-      const menu = await this.prismaService.menu.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!menu) {
+      if (!admin_id) {
         return {
-          status: 'error',
-          message: 'Menu not found',
+          status: 400,
+          message: 'admin_id is required',
           success: false,
-          statusCode: 404,
+        };
+      }
+      const admin = await this.prismaService.user.findUnique({
+        where: { id: Number(admin_id) },
+      });
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
+        return {
+          status: 403,
+          message: 'You are not authorized to perform this action',
+          success: false,
         };
       }
 
-      await this.prismaService.menu.delete({
-        where: { id: Number(id) },
+      await this.handleMenusActivation();
+      const menuPeriod = await this.prismaService.menuPeriod.findUnique({
+        where: { id: Number(periodId) },
       });
+      if (!menuPeriod) {
+        return {
+          status: 404,
+          message: 'Menu period not found',
+          success: false,
+        };
+      }
+      const menusToCreate = body.meals.map((meal) => ({
+        dayOfWeek: meal.dayOfWeek!,
+        mealType: meal.mealType!,
+        starter: meal.starter!,
+        main_course: meal.main_course!,
+        side_dish: meal.side_dish!,
+        dessert: meal.dessert!,
+        drink: meal.drink!,
+        snack: meal.snack!,
+        special_note: meal.special_note!,
+      }));
 
+      if (!menusToCreate || menusToCreate.length === 0) {
+        return {
+          status: 400,
+          message: 'No meals to create',
+          success: false,
+        };
+      }
+      const createdMenus = await this.prismaService.menu.createMany({
+        data: menusToCreate.map((menu) => ({
+          ...menu,
+          menuPeriodId: menuPeriod.id,
+          isActive: true,
+        })),
+        skipDuplicates: true,
+      });
+      if (!createdMenus || createdMenus.count === 0) {
+        return {
+          status: 400,
+          message: 'No new menus were created. They might already exist.',
+          success: false,
+        };
+      }
       return {
-        status: 'success',
-        message: 'Menu deleted successfully',
+        status: 201,
+        message: `${createdMenus.count} menus created successfully`,
         success: true,
-        statusCode: 200,
       };
     } catch (error) {
       return {
-        status: 'error',
-        message: 'An error occurred while deleting the menu',
+        status: 500,
+        message: error.message || 'Internal server error',
         success: false,
-        statusCode: 500,
       };
     }
+  }
+
+  async handleMenusActivation() {
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0); // Set to start of day for date-only comparison
+
+    // delete meals of periods that ended one day ago
+    await this.prismaService.menu.deleteMany({
+      where: {
+        menuPeriod: {
+          endDate: {
+            lt: new Date(currentDate.getTime() - 24 * 60 * 60 * 1000),
+          },
+        },
+      },
+    });
+
+    // delete periods that ended 1 day ago
+    await this.prismaService.menuPeriod.deleteMany({
+      where: {
+        endDate: { lt: new Date(currentDate.getTime() - 24 * 60 * 60 * 1000) },
+      },
+    });
+
+    // Activate periods that are starting today
+    await this.prismaService.menuPeriod.updateMany({
+      where: {
+        startDate: {
+          gte: currentDate,
+          lt: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000), // Next day
+        },
+        isActive: false,
+      },
+      data: { isActive: true },
+    });
+
+    // activate periods that have started but were not activated (missed activation)
+    // this can happen if the backend was down for a few days
+    await this.prismaService.menuPeriod.updateMany({
+      where: {
+        startDate: { lt: currentDate },
+        isActive: false,
+      },
+      data: { isActive: true },
+    });
+
+    // if two periods are active for one category, delete the older one (with its menus)
+    const activePeriods = await this.prismaService.menuPeriod.findMany({
+      where: { isActive: true },
+      orderBy: { startDate: 'asc' },
+    });
+
+    const categoryActiveMap = new Map<string, any[]>();
+    for (const period of activePeriods) {
+      if (!categoryActiveMap.has(period.category)) {
+        categoryActiveMap.set(period.category, [period]);
+      } else {
+        categoryActiveMap.get(period.category)!.push(period);
+      }
+    }
+
+    console.log(categoryActiveMap);
+
+    for (const [category, periods] of categoryActiveMap.entries()) {
+      if (periods.length > 1) {
+        console.log(
+          `Category ${category} has ${periods.length} active periods. Cleaning up...`,
+        );
+        // More than one active period for this category
+        // Delete all but the most recent one
+        const periodsToDelete = periods.slice(0, -1); // All but the last one
+        const periodIdsToDelete = periodsToDelete.map((p) => p.id);
+
+        console.log(
+          `Deleting periods with IDs: ${periodIdsToDelete.join(', ')}`,
+        );
+
+        // Delete menus first
+        await this.prismaService.menu.deleteMany({
+          where: { menuPeriodId: { in: periodIdsToDelete } },
+        });
+
+        // Then delete the periods
+        await this.prismaService.menuPeriod.deleteMany({
+          where: { id: { in: periodIdsToDelete } },
+        });
+      } else {
+        console.log(`Category ${category} has only one active period.`);
+      }
+    }
+    return;
   }
 }

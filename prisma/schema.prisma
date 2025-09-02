@@ -151,26 +151,45 @@ model Schedule {
   @@map("schedules")
 }
 
+model MenuPeriod {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)
+  description String?   @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  category    Category
+
+  menus Menu[]
+
+  // Contraintes : une seule période active par catégorie
+  @@unique([id, category])
+  @@map("menu_periods")
+}
+
 model Menu {
-  id   Int      @id @default(autoincrement())
-  date String
-  day  String   @db.VarChar(20)
-  type MenuType
+  id           Int       @id @default(autoincrement())
+  menuPeriodId Int
+  dayOfWeek    DayOfWeek
+  mealType     MenuType
 
-  // 🍽️ Déjeuner
-  starter     String? @db.Text // Entrée (ex : soupe, salade)
-  main_course String? @db.Text // Plat principal (ex : riz-poulet)
-  side_dish   String? @db.Text // Accompagnement (ex : légumes)
-  dessert     String? @db.Text // Dessert (ex : yaourt, fruits)
-  drink       String? @db.Text // Boisson (eau, jus, etc.)
+  starter      String?  @db.Text
+  main_course  String?  @db.Text
+  side_dish    String?  @db.Text
+  dessert      String?  @db.Text
+  drink        String?  @db.Text
+  snack        String?  @db.Text
+  special_note String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  // 🧁 Goûter
-  snack String? @db.Text // Description de la collation
+  menuPeriod MenuPeriod @relation(fields: [menuPeriodId], references: [id], onDelete: Cascade)
 
-  // Autres
-  special_note String?  @db.Text // Notes spéciales (sans gluten, halal, etc.)
-  created_at   DateTime @default(now()) // Date d'ajout dans le système
-
+  // Contraintes : un seul menu par période/jour/type
+  @@unique([menuPeriodId, dayOfWeek, mealType])
   @@map("menus")
 }
 

@@ -47,6 +47,7 @@ export class ClassesService {
           _count: {
             select: {
               assignments: true, // Count the number of children assigned to this classroom
+              schedulePeriods: true,
             },
           },
         },
