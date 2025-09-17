@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ChildrenService } from './children.service';
 import { ChildrenDtoGet, CreateChildDto } from './dto/children-dto';
+import { Category } from 'generated/prisma';
 
 @Controller('children')
 export class ChildrenController {
@@ -21,6 +22,11 @@ export class ChildrenController {
   @Get('statistics') // Get /children/statistics to retrieve children statistics
   getChildrenStatistics(@Query('admin_id') admin_id: string) {
     return this.childrenService.getChildrenStatistics(admin_id);
+  }
+
+  @Get('allergies')
+  getAllergies(@Query('admin_id') admin_id: string,@Query('category') category: Category) {
+    return this.childrenService.getAllergies(admin_id, category);
   }
 
   @Get('search') // Get /children/search?name= to search children by name

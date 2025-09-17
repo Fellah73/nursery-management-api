@@ -1,6 +1,7 @@
 import { Body, Injectable, Query } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ChildrenDtoGet, CreateChildDto } from './dto/children-dto';
+import { Category } from 'generated/prisma';
 
 @Injectable()
 export class ChildrenService {
@@ -476,12 +477,12 @@ export class ChildrenService {
           break;
         case 'medical_info':
           updateData = {
-            medical_info: body.medical_info ,
+            medical_info: body.medical_info,
           };
           break;
         case 'special_needs':
           updateData = {
-            special_needs: body.special_needs ,
+            special_needs: body.special_needs,
           };
           break;
         case 'notes':
@@ -491,8 +492,7 @@ export class ChildrenService {
           break;
         case 'vaccination_status':
           updateData = {
-            vaccination_status:
-              body.vaccination_status,
+            vaccination_status: body.vaccination_status,
           };
           break;
         default:
@@ -513,6 +513,113 @@ export class ChildrenService {
       return {
         status: 'success',
         data: updatedChild,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        message: error.message,
+        success: false,
+        statusCode: 500,
+      };
+    }
+  }
+
+  async getAllergies(admin_id: string, category: Category) {
+    try {
+      if (!admin_id) {
+        return {
+          status: 'error',
+          message: 'Admin ID is required',
+          success: false,
+          statusCode: 400,
+        };
+      }
+      const adminUser = await this.prismaService.user.findUnique({
+        where: { id: parseInt(admin_id) },
+      });
+      if (
+        !adminUser ||
+        (adminUser.role !== 'ADMIN' && adminUser.role !== 'SUPER_ADMIN')
+      ) {
+        return {
+          status: 'error',
+          message: 'Only admins can access this resource',
+          success: false,
+          statusCode: 403,
+        };
+      }
+      // Fetch all allergies from children
+      const childrenWithAllergies = await this.prismaService.children.findMany({
+        where: {
+          allergies: {
+            not: '',
+          },
+          assignments: {
+            some: {
+              classroom: {
+                category: category!,
+              },
+            },
+          },
+        },
+        select: {
+          allergies: true,
+          full_name: true,
+          gender: true,
+          profile_picture: true,
+          assignments: {
+            select: {
+              classroom: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const allergiesAlimentaires = childrenWithAllergies
+        .filter((child) => {
+          // Check if child has any alimentaires allergy
+          return child.allergies && child.allergies.includes('alimentaires-');
+        })
+        .map((child) => {
+          // Extract only alimentaires allergies from the string
+          const allergiesList = child.allergies!.split(',');
+          const alimentairesAllergies = allergiesList
+            .filter((allergy) => allergy.trim().startsWith('alimentaires-'))
+            .map((allergy) => allergy.replace('alimentaires-', '').trim());
+
+          return {
+            child_name: child.full_name,
+            gender: child.gender,
+            profile_picture: child.profile_picture,
+            classroom: child.assignments[0]?.classroom.name || 'No classroom',
+            allergies: alimentairesAllergies,
+          };
+        });
+
+        // group the children by the allergies
+      const groupedByAllergy = allergiesAlimentaires.reduce(
+        (acc, child) => {
+          child.allergies.forEach((allergy) => {
+            if (!acc[allergy]) {
+              acc[allergy] = [];
+            }
+            acc[allergy].push(child);
+          });
+          return acc;
+        },
+        {} as Record<string, typeof allergiesAlimentaires>
+      );
+
+      return {
+        status: 'success',
+        childrenWithAllergies: groupedByAllergy,
+        length: allergiesAlimentaires.length,
         success: true,
         statusCode: 200,
       };

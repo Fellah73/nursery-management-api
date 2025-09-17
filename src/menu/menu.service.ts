@@ -34,7 +34,6 @@ export class MenuService {
         },
         select: {
           id: true,
-          name: true,
           startDate: true,
           endDate: true,
           category: true,
@@ -74,6 +73,101 @@ export class MenuService {
         message: 'Menu periods retrieved successfully',
         success: true,
         menuPeriodsByCategory: groupedMenuPeriods,
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        message: error.message || 'Internal server error',
+        success: false,
+      };
+    }
+  }
+
+  async getMenuMeals(admin_id: string, category: Category) {
+    try {
+      if (!admin_id) {
+        return {
+          status: 400,
+          message: 'admin_id is required',
+          success: false,
+        };
+      }
+      const admin = await this.prismaService.user.findUnique({
+        where: { id: Number(admin_id) },
+      });
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
+        return {
+          status: 403,
+          message: 'You are not authorized to perform this action',
+          success: false,
+        };
+      }
+      await this.handleMenusActivation();
+
+      const activeMenuPeriods = await this.prismaService.menuPeriod.findMany({
+        where: {
+          isActive: true,
+        },
+      });
+
+      const menuMeals = await this.prismaService.menu.findMany({
+        where: {
+          menuPeriodId: {
+            in: activeMenuPeriods
+              .filter((period) => period.category === category)
+              .map((period) => period.id),
+          },
+        },
+        select: {
+          id: true,
+          dayOfWeek: true,
+          mealType: true,
+          starter: true,
+          main_course: true,
+          side_dish: true,
+          dessert: true,
+          drink: true,
+          snack: true,
+        },
+        orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
+      });
+
+      // PERSONNALIEZ THE RESPONSE ; if the meal type is breakfast or snack ,only return snack and drink
+      // if the meal type is lunch or dinner return starter, main_course, side_dish, dessert, drink
+      const personalizedMeals = menuMeals.map((meal) => {
+        if (meal.mealType === 'Breakfast' || meal.mealType === 'Gouter') {
+          return {
+            ...meal,
+            side_dish: undefined,
+            main_course: undefined,
+            starter: undefined,
+            dessert: undefined,
+          };
+        }
+        if (meal.mealType === 'Lunch') {
+          return {
+            ...meal,
+            snack: undefined,
+          };
+        }
+        return meal;
+      });
+
+      // return the meals grouped by day of the week
+      const mealsByDay = personalizedMeals.reduce((acc, meal) => {
+        const day = meal.dayOfWeek;
+        if (!acc[day]) {
+          acc[day] = [];
+        }
+        acc[day].push(meal);
+        return acc;
+      }, {});
+
+      return {
+        status: 200,
+        message: 'Menu meals retrieved successfully',
+        success: true,
+        meals: mealsByDay,
       };
     } catch (error) {
       return {
@@ -259,8 +353,33 @@ export class MenuService {
       }
 
       await this.handleMenusActivation();
+
+      let newPeriodId: string = '';
+      if (periodId === 'new') {
+        // create a new current period for the specified category
+        await this.createMenuPeriod(
+          {
+            category: body.category,
+          },
+          admin_id,
+          'current',
+        );
+
+        newPeriodId = await this.prismaService.menuPeriod
+          .findFirst({
+            where: {
+              category: body.category,
+              isActive: true,
+            },
+            select: { id: true },
+            orderBy: { createdAt: 'desc' },
+          })
+          .then((period) => (period ? period.id.toString() : ''));
+      }
+      const finalPeriodId = periodId === 'new' ? newPeriodId : periodId;
+
       const menuPeriod = await this.prismaService.menuPeriod.findUnique({
-        where: { id: Number(periodId) },
+        where: { id: Number(finalPeriodId) },
       });
       if (!menuPeriod) {
         return {
@@ -269,6 +388,12 @@ export class MenuService {
           success: false,
         };
       }
+
+      // delete all existing meals for this period to avoid duplicates
+      await this.prismaService.menu.deleteMany({
+        where: { menuPeriodId: Number(finalPeriodId) },
+      });
+
       const menusToCreate = body.meals.map((meal) => ({
         dayOfWeek: meal.dayOfWeek!,
         mealType: meal.mealType!,
@@ -376,21 +501,12 @@ export class MenuService {
       }
     }
 
-    console.log(categoryActiveMap);
-
     for (const [category, periods] of categoryActiveMap.entries()) {
       if (periods.length > 1) {
-        console.log(
-          `Category ${category} has ${periods.length} active periods. Cleaning up...`,
-        );
         // More than one active period for this category
         // Delete all but the most recent one
         const periodsToDelete = periods.slice(0, -1); // All but the last one
         const periodIdsToDelete = periodsToDelete.map((p) => p.id);
-
-        console.log(
-          `Deleting periods with IDs: ${periodIdsToDelete.join(', ')}`,
-        );
 
         // Delete menus first
         await this.prismaService.menu.deleteMany({
@@ -401,8 +517,6 @@ export class MenuService {
         await this.prismaService.menuPeriod.deleteMany({
           where: { id: { in: periodIdsToDelete } },
         });
-      } else {
-        console.log(`Category ${category} has only one active period.`);
       }
     }
     return;

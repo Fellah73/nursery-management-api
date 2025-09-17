@@ -19,4 +19,5 @@ export class CreateMenuMealsDto {
     snack?: string;
     special_note?: string;
   }[];
+  category: Category;
 }

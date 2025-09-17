@@ -1,6 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
-import { MenuService } from './menu.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query
+} from '@nestjs/common';
+import { Category } from 'generated/prisma';
 import { CreateMenuMealsDto, CreateMenuPeriodDto } from './dto/menu-dto';
+import { MenuService } from './menu.service';
 
 @Controller('menu')
 export class MenuController {
@@ -20,8 +29,19 @@ export class MenuController {
     return this.menuService.createMenuPeriod(body, admin_id, type);
   }
 
+  @Get('/meals')
+  getMenuMeals(
+    @Query('admin_id') admin_id: string,
+    @Query('category') category: Category,
+  ) {
+    return this.menuService.getMenuMeals(admin_id, category);
+  }
+
   @Delete('/period/:periodId')
-  deleteMenuPeriod(@Query('admin_id') admin_id: string, @Param('periodId') periodId: string) {
+  deleteMenuPeriod(
+    @Query('admin_id') admin_id: string,
+    @Param('periodId') periodId: string,
+  ) {
     return this.menuService.deleteMenuPeriod(admin_id, periodId);
   }
 
