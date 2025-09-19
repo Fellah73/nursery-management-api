@@ -29,12 +29,25 @@ export class MenuController {
     return this.menuService.createMenuPeriod(body, admin_id, type);
   }
 
+  @Get('/programme')
+  getProgrammedMenuPeriods(@Query('admin_id') admin_id: string) {
+    return this.menuService.getProgrammedMenuPeriods(admin_id);
+  }
+
   @Get('/meals')
   getMenuMeals(
     @Query('admin_id') admin_id: string,
     @Query('category') category: Category,
   ) {
     return this.menuService.getMenuMeals(admin_id, category);
+  }
+
+  @Get('meals/:periodId')
+  getMenuMealsByPeriod(
+    @Query('admin_id') admin_id: string,
+    @Param('periodId') periodId: string,
+  ) {
+    return this.menuService.getMenuMealsByPeriod(admin_id, periodId);
   }
 
   @Delete('/period/:periodId')

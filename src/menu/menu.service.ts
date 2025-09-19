@@ -295,6 +295,7 @@ export class MenuService {
       await this.handleMenusActivation();
       const menuPeriod = await this.prismaService.menuPeriod.findUnique({
         where: { id: Number(periodId) },
+        include: { menus: true },
       });
       if (!menuPeriod) {
         return {
@@ -304,10 +305,12 @@ export class MenuService {
         };
       }
 
-      // delete all the meals associated with this period
-      await this.prismaService.menu.deleteMany({
-        where: { menuPeriodId: Number(periodId) },
-      });
+      if (menuPeriod.menus.length > 0) {
+        // delete all the meals associated with this period
+        await this.prismaService.menu.deleteMany({
+          where: { menuPeriodId: Number(periodId) },
+        });
+      }
 
       // delete the period
       await this.prismaService.menuPeriod.delete({
@@ -520,5 +523,180 @@ export class MenuService {
       }
     }
     return;
+  }
+
+  async getProgrammedMenuPeriods(admin_id: string) {
+    try {
+      if (!admin_id) {
+        return {
+          status: 400,
+          message: 'admin_id is required',
+          success: false,
+        };
+      }
+      const admin = await this.prismaService.user.findUnique({
+        where: { id: Number(admin_id) },
+      });
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
+        return {
+          status: 403,
+          message: 'You are not authorized to perform this action',
+          success: false,
+        };
+      }
+      await this.handleMenusActivation();
+
+      const inactiveMenuPeriods = await this.prismaService.menuPeriod.findMany({
+        where: {
+          isActive: false,
+        },
+        select: {
+          id: true,
+          name: true,
+          startDate: true,
+          endDate: true,
+          category: true,
+        },
+      });
+
+      // pas de menu periods found
+      if (!inactiveMenuPeriods || inactiveMenuPeriods.length === 0) {
+        return {
+          status: 200,
+          message: 'No inactive menu periods found',
+          programmedMenuPeriods: [],
+          success: true,
+        };
+      }
+
+      // the inactive menu periods found should be ordered by category and in each one contain the number of associated menuPeriods
+      const inactiveMenuPeriodsByCategory = inactiveMenuPeriods.reduce(
+        (acc, period) => {
+          if (!acc[period.category]) {
+            acc[period.category] = {
+              category: period.category,
+              periods: [],
+              count: 0,
+            };
+          }
+          acc[period.category].periods.push(period);
+          acc[period.category].count++;
+          return acc;
+        },
+        {} as Record<
+          string,
+          { category: string; periods: any[]; count: number }
+        >,
+      );
+
+      return {
+        status: 200,
+        message: 'Inactive menu periods retrieved successfully',
+        programmedMenuPeriods: inactiveMenuPeriodsByCategory,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        message: error.message || 'Internal server error',
+        success: false,
+      };
+    }
+  }
+  async getMenuMealsByPeriod(admin_id: string, periodId: string) {
+    try {
+      if (!admin_id) {
+        return {
+          status: 400,
+          message: 'admin_id is required',
+          success: false,
+        };
+      }
+      const admin = await this.prismaService.user.findUnique({
+        where: { id: Number(admin_id) },
+      });
+      if (!admin || (admin.role !== 'ADMIN' && admin.role != 'SUPER_ADMIN')) {
+        return {
+          status: 403,
+          message: 'You are not authorized to perform this action',
+          success: false,
+        };
+      }
+      await this.handleMenusActivation();
+      const menuPeriod = await this.prismaService.menuPeriod.findUnique({
+        where: { id: Number(periodId) },
+      });
+      if (!menuPeriod) {
+        return {
+          status: 404,
+          message: 'Menu period not found',
+          success: false,
+        };
+      }
+      const menuMeals = await this.prismaService.menu.findMany({
+        where: {
+          menuPeriodId: {
+            equals: menuPeriod.id,
+          },
+        },
+        select: {
+          id: true,
+          dayOfWeek: true,
+          mealType: true,
+          starter: true,
+          main_course: true,
+          side_dish: true,
+          dessert: true,
+          drink: true,
+          snack: true,
+        },
+        orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
+      });
+
+      // PERSONNALIEZ THE RESPONSE ; if the meal type is breakfast or snack ,only return snack and drink
+      // if the meal type is lunch or dinner return starter, main_course, side_dish, dessert, drink
+      const personalizedMeals = menuMeals.map((meal) => {
+        if (meal.mealType === 'Breakfast' || meal.mealType === 'Gouter') {
+          return {
+            ...meal,
+            side_dish: undefined,
+            main_course: undefined,
+            starter: undefined,
+            dessert: undefined,
+          };
+        }
+        if (meal.mealType === 'Lunch') {
+          return {
+            ...meal,
+            snack: undefined,
+          };
+        }
+        return meal;
+      });
+
+      // return the meals grouped by day of the week
+      const mealsByDay = personalizedMeals.reduce((acc, meal) => {
+        const day = meal.dayOfWeek;
+        if (!acc[day]) {
+          acc[day] = [];
+        }
+        acc[day].push(meal);
+        return acc;
+      }, {});
+
+      return {
+        status: 200,
+        message: 'Menu meals retrieved successfully',
+        success: true,
+        category: menuPeriod.category,
+        meals: mealsByDay,
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        message: error.message || 'Internal server error',
+        success: false,
+      };
+    }
   }
 }
