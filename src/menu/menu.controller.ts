@@ -5,7 +5,7 @@ import {
   Get,
   Param,
   Post,
-  Query
+  Query,
 } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import { CreateMenuMealsDto, CreateMenuPeriodDto } from './dto/menu-dto';

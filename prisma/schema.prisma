@@ -27,6 +27,10 @@ model User {
   // Relations
   children      Children[]
   userResponses UserResponse[]
+  // Relations pour les présences du personnel
+  attendances   Attendance[]   @relation("AttendanceUser")
+  // Relations pour les approbations de présences
+  approvals     Attendance[]   @relation("AttendanceApprover")
   // Relation pour les enseignants (si le rôle est TEACHER)
   classroom     Classroom?
 
@@ -67,6 +71,9 @@ model Children {
 
   // Relation inverse pour les affectations
   assignments Assignment[]
+
+  // Relations pour les présences des enfants
+  attendances Attendance[]
 
   @@map("children")
 }
@@ -219,6 +226,66 @@ model UserResponse {
   // Index composite pour éviter les doublons (un utilisateur ne peut répondre qu'une fois à une question)
   @@unique([user_id, question_id])
   @@map("user_responses")
+}
+
+// Table pour les dates de présence (journées)
+model AttendanceDate {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique @db.Date
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attendances Attendance[]
+
+  @@map("attendance_dates")
+}
+
+model Attendance {
+  id               Int @id @default(autoincrement())
+  attendanceDateId Int
+
+  // Type d'entité
+  entityType EntityType // STAFF ou CHILD
+  userId     Int? // Pour le staff
+  childId    Int? // Pour les enfants
+
+  status AttendanceStatus @default(PENDING)
+
+  // Horaires
+  checkInTime          DateTime?
+  checkOutTime         DateTime?
+
+  // Approbation
+  isApproved Boolean   @default(false)
+  approvedBy Int?
+  approvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attendanceDate AttendanceDate @relation(fields: [attendanceDateId], references: [id], onDelete: Cascade)
+  user           User?          @relation("AttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  child          Children?      @relation(fields: [childId], references: [id], onDelete: Cascade)
+  approver       User?          @relation("AttendanceApprover", fields: [approvedBy], references: [id])
+
+  // Contraintes
+  @@unique([attendanceDateId, userId, entityType])
+  @@unique([attendanceDateId, childId, entityType])
+  @@map("attendances")
+}
+
+enum EntityType {
+  STAFF
+  CHILD
+}
+
+enum AttendanceStatus {
+  PENDING // Pas encore arrivé
+  PRESENT // Présent à l'heure
+  ABSENT // Absent (marqué automatiquement en fin de journée)
+  LATE // En retard (calculé automatiquement)
 }
 
 enum Gender {

@@ -132,8 +132,6 @@ export class MenuService {
         orderBy: [{ dayOfWeek: 'asc' }, { mealType: 'asc' }],
       });
 
-      // PERSONNALIEZ THE RESPONSE ; if the meal type is breakfast or snack ,only return snack and drink
-      // if the meal type is lunch or dinner return starter, main_course, side_dish, dessert, drink
       const personalizedMeals = menuMeals.map((meal) => {
         if (meal.mealType === 'Breakfast' || meal.mealType === 'Gouter') {
           return {
@@ -261,7 +259,7 @@ export class MenuService {
         status: 201,
         message: 'Menu period created successfully',
         success: true,
-        data: newMenuPeriod,
+        data: newMenuPeriod.id,
       };
     } catch (error) {
       return {
@@ -690,6 +688,10 @@ export class MenuService {
         success: true,
         category: menuPeriod.category,
         meals: mealsByDay,
+        menuInfos: {
+          startDate: menuPeriod.startDate.toISOString().split('T')[0],
+          endDate: menuPeriod.endDate?.toISOString().split('T')[0] || null,
+        },
       };
     } catch (error) {
       return {
