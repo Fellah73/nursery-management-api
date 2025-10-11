@@ -133,10 +133,20 @@ export class AttendanceService {
     // init attendance records if not already done
     await this.initAllAttendanceForToday();
 
+    // attendance date
+    const attendanceDate = await this.prismaService.attendanceDate.findFirst({
+      where: {
+        date: new Date(new Date().setHours(0, 0, 0, 0)),
+      },
+    });
+
     // return all attendance dates with attendance records
     const attendanceRecords = await this.prismaService.attendance.findMany({
       where: {
         entityType: 'STAFF',
+        attendanceDate: {
+          id: attendanceDate?.id,
+        },
       },
       select: {
         id: true,
@@ -211,11 +221,20 @@ export class AttendanceService {
       },
     });
 
+    // attendance date
+    const attendanceDate = await this.prismaService.attendanceDate.findFirst({
+      where: {
+        date: new Date(new Date().setHours(0, 0, 0, 0)),
+      },
+    });
     // return all attendance dates with attendance records
     const childrenAttendanceRecords =
       await this.prismaService.attendance.findMany({
         where: {
           entityType: 'CHILD',
+          attendanceDate: {
+            id: attendanceDate?.id,
+          },
           child: {
             assignments: {
               some: {
@@ -248,5 +267,337 @@ export class AttendanceService {
       },
       attendances: childrenAttendanceRecords,
     };
+  }
+
+  // get all attendance records for children paged by classroom
+  async getGlobalChildrenAttendanceRecords(
+    admin_id: number,
+    classroom_id: number,
+  ) {
+    await this.privacyCheck(admin_id);
+
+    // init attendance records if not already done
+    await this.initAllAttendanceForToday();
+
+    // get all classroom
+    const classRoomData = await this.prismaService.classroom.findMany({
+      select: {
+        id: true,
+        name: true,
+        category: true,
+      },
+      orderBy: { category: 'asc' },
+      where: {
+        assignments: {
+          some: {},
+        },
+      },
+    });
+
+    // group classrooms by category
+    const groupedClassrooms = classRoomData.reduce((acc, classroom) => {
+      if (!acc[classroom.category]) {
+        acc[classroom.category] = [];
+      }
+      acc[classroom.category].push(classroom);
+      return acc;
+    }, {});
+
+    if (!classroom_id) {
+      return {
+        message: 'Classroom ID is required',
+        status: 400,
+        success: false,
+      };
+    }
+
+    // get attendance Date
+    const attendanceDate = await this.prismaService.attendanceDate.findFirst({
+      where: {
+        date: new Date(new Date().setHours(0, 0, 0, 0)),
+      },
+    });
+
+    let attendanceRecords;
+    if (classroom_id === -1) {
+      // get the children attendance records for only the first classroom of the grouoped classrooms
+      const firstClassroomId =
+        groupedClassrooms[Object.keys(groupedClassrooms)[0]][0].id;
+      attendanceRecords = await this.prismaService.attendance.findMany({
+        where: {
+          entityType: 'CHILD',
+          attendanceDateId: attendanceDate?.id,
+          child: {
+            assignments: {
+              some: {
+                classroomId: firstClassroomId,
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          child: {
+            select: {
+              full_name: true,
+              age: true,
+            },
+          },
+        },
+      });
+      // return the attendance records with classroom_id
+    } else {
+      attendanceRecords = await this.prismaService.attendance.findMany({
+        where: {
+          entityType: 'CHILD',
+          child: {
+            assignments: {
+              some: {
+                classroomId: classroom_id,
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          child: {
+            select: {
+              full_name: true,
+              age: true,
+            },
+          },
+        },
+      });
+    }
+
+    return {
+      message: 'Présences récupérées avec succès',
+      status: 200,
+      success: true,
+      metadata: {
+        classRooms: groupedClassrooms,
+        classRoomsLength: classRoomData.length,
+        attendancesLength: attendanceRecords.length,
+      },
+      attendances: attendanceRecords,
+    };
+  }
+
+  // staff check-in handler
+  async staffCheckInHandler(
+    id: number,
+    admin_id: number,
+    approve: string,
+    time: string,
+  ) {
+    try {
+      // privacy check
+      await this.privacyCheck(admin_id);
+
+      // get attendance record
+      const attendance = await this.prismaService.attendance.findUnique({
+        where: { id },
+      });
+
+      if (!attendance) {
+        return {
+          message: "Le registre de présence n'existe pas",
+          status: 404,
+          success: false,
+        };
+      }
+
+      // create date with current date and provided time
+      const currentDate = new Date();
+      const [hours, minutes] = time.split(':').map(Number);
+      const checkInDateTime = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        hours,
+        minutes,
+      );
+
+      const checkInEndTime = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        8,
+        15,
+      );
+
+      const isLate = checkInDateTime > checkInEndTime;
+      // update attendance record
+      await this.prismaService.attendance.update({
+        where: { id },
+        data: {
+          status: approve === 'false' ? 'ABSENT' : isLate ? 'LATE' : 'PRESENT',
+          checkInTime: approve === 'true' ? checkInDateTime : null,
+        },
+      });
+
+      return {
+        message: 'Attendance record updated successfully',
+        status: 200,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message ||
+          'Erreur lors de la mise à jour du registre de présence',
+        status: 500,
+        success: false,
+      };
+    }
+  }
+  // staff check-out handler
+  async staffCheckOutHandler(
+    id: number,
+    admin_id: number,
+    approve: string,
+    time: string,
+  ) {
+    try {
+      // privacy check
+      await this.privacyCheck(admin_id);
+
+      // check the attendance absences
+      await this.staffAbsenceHandler();
+      // get attendance record
+      const attendance = await this.prismaService.attendance.findUnique({
+        where: { id },
+      });
+      if (!attendance) {
+        return {
+          message: "Le registre de présence n'existe pas",
+          status: 404,
+          success: false,
+        };
+      }
+
+      // create date with current date and provided time
+      const currentDate = new Date();
+      const [hours, minutes] = time.split(':').map(Number);
+      const checkOutDateTime = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate(),
+        hours,
+        minutes,
+      );
+
+      // update attendance record
+      await this.prismaService.attendance.update({
+        where: { id },
+        data: {
+          checkOutTime: approve === 'true' ? checkOutDateTime : null,
+        },
+      });
+
+      return {
+        message: 'Attendance record updated successfully',
+        status: 200,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message ||
+          'Erreur lors de la mise à jour du registre de présence',
+        status: 500,
+        success: false,
+      };
+    }
+  }
+
+  // staff mark absent handler
+  async StaffMarkAbsentHandler(id: number, admin_id: number) {
+    try {
+      // privacy check
+      await this.privacyCheck(admin_id);
+      // get attendance record
+      const attendance = await this.prismaService.attendance.findUnique({
+        where: { id },
+      });
+      if (!attendance) {
+        return {
+          message: "Le registre de présence n'existe pas",
+          status: 404,
+          success: false,
+        };
+      }
+
+      // update attendance record
+      await this.prismaService.attendance.update({
+        where: { id },
+        data: {
+          status: 'ABSENT',
+        },
+      });
+
+      return {
+        message: 'Attendance record updated successfully',
+        status: 200,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message ||
+          'Erreur lors de la mise en absence du registre de présence',
+        status: 500,
+        success: false,
+      };
+    }
+  }
+
+  // staff absence handler
+  async staffAbsenceHandler() {
+    if (new Date().getHours() < 18) {
+      return {
+        message: "La gestion des absences n'est disponible qu'après 18h00",
+        status: 403,
+        success: false,
+      };
+    }
+
+    try {
+      // to be implemented
+      const checkOutEndTime = new Date();
+      checkOutEndTime.setHours(18, 0, 0, 0); // Set to 6pm
+
+      const attendanceRecords = await this.prismaService.attendance.findMany({
+        where: {
+          entityType: 'STAFF',
+          status: 'PENDING',
+        },
+      });
+
+      // update all pending attendance records to absent
+      attendanceRecords.forEach(async (record) => {
+        await this.prismaService.attendance.update({
+          where: { id: record.id },
+          data: {
+            status: 'ABSENT',
+          },
+        });
+      });
+
+      return {
+        message: 'Absences récupérées avec succès',
+        status: 200,
+        success: true,
+        attendances: attendanceRecords,
+      };
+    } catch (error) {
+      return {
+        message: error.message || 'Erreur lors de la récupération des absences',
+        status: 500,
+        success: false,
+      };
+    }
   }
 }
