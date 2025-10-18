@@ -257,7 +257,6 @@ model Attendance {
   checkOutTime         DateTime?
 
   // Approbation
-  isApproved Boolean   @default(false)
   approvedBy Int?
   approvedAt DateTime?
 

@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Body, Injectable, Param } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { AttendanceDto, AttendanceUpdateDto } from './attendance-dto';
 
 @Injectable()
 export class AttendanceService {
@@ -8,7 +9,7 @@ export class AttendanceService {
   // initialize attendanceDate and attendanceRecords for all active teachers and children for today
   async initAllAttendanceForToday() {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Set to the start of the day
+    today.setHours(12, 0, 0, 0); // Set to midday
 
     const existingAttendancesDate =
       await this.prismaService.attendanceDate.findFirst({
@@ -99,37 +100,9 @@ export class AttendanceService {
     };
   }
 
-  // privacy check for admin, super admin and teachers to retrieve the level of access
-  async privacyCheckChildren(userId: number) {
-    const user = await this.prismaService.user.findUnique({
-      where: { id: userId },
-    });
-
-    // in case the user exists
-    if (user?.role == 'ADMIN' || user?.role == 'SUPER_ADMIN') {
-      return {
-        success: false,
-        status: 403,
-      };
-    } else if (user?.role == 'TEACHER') {
-      return {
-        success: true,
-        status: 200,
-        user: user,
-      };
-    } else {
-      return {
-        success: false,
-        status: 403,
-      };
-    }
-  }
-
   // get all attendance records for staff
+  // service : done
   async getStaffAttendanceRecords(admin_id: number) {
-    // privacy check
-    await this.privacyCheck(admin_id);
-
     // init attendance records if not already done
     await this.initAllAttendanceForToday();
 
@@ -170,6 +143,14 @@ export class AttendanceService {
       },
     });
 
+    if (!attendanceRecords) {
+      return {
+        message: 'Aucun registre de présence trouvé',
+        status: 404,
+        success: false,
+      };
+    }
+
     return {
       message: 'Présences récupérées avec succès',
       status: 200,
@@ -179,103 +160,12 @@ export class AttendanceService {
     };
   }
 
-  // get all attendance records for children
-  async getChildrenAttendanceRecords(admin_id: number) {
-    // privacy check
-    const accessLevel = await this.privacyCheckChildren(admin_id);
-
-    // the user doesn't exist
-    if (!accessLevel) {
-      return {
-        success: false,
-        message: "User n'est pas trouvé",
-        status: 403,
-      };
-    }
-
-    if (!accessLevel.success) {
-      return {
-        success: false,
-        message: 'Wrong route',
-        status: 403,
-      };
-    }
-
-    // init attendance records if not already done
-    await this.initAllAttendanceForToday();
-
-    // get the classroom data of the teacher
-    const classRoomData = await this.prismaService.classroom.findFirst({
-      where: {
-        teacherId: accessLevel.user?.id,
-      },
-      select: {
-        name: true,
-        category: true,
-        capacity: true,
-        _count: {
-          select: {
-            assignments: true,
-          },
-        },
-      },
-    });
-
-    // attendance date
-    const attendanceDate = await this.prismaService.attendanceDate.findFirst({
-      where: {
-        date: new Date(new Date().setHours(0, 0, 0, 0)),
-      },
-    });
-    // return all attendance dates with attendance records
-    const childrenAttendanceRecords =
-      await this.prismaService.attendance.findMany({
-        where: {
-          entityType: 'CHILD',
-          attendanceDate: {
-            id: attendanceDate?.id,
-          },
-          child: {
-            assignments: {
-              some: {
-                classroom: {
-                  teacherId: accessLevel.user?.id,
-                },
-              },
-            },
-          },
-        },
-        select: {
-          id: true,
-          status: true,
-          child: {
-            select: {
-              full_name: true,
-              age: true,
-            },
-          },
-        },
-      });
-
-    return {
-      message: 'Présences récupérées avec succès',
-      status: 200,
-      success: true,
-      metadata: {
-        classroom: classRoomData,
-        length: childrenAttendanceRecords.length,
-      },
-      attendances: childrenAttendanceRecords,
-    };
-  }
-
   // get all attendance records for children paged by classroom
+  // service : done
   async getGlobalChildrenAttendanceRecords(
     admin_id: number,
     classroom_id: number,
   ) {
-    await this.privacyCheck(admin_id);
-
     // init attendance records if not already done
     await this.initAllAttendanceForToday();
 
@@ -351,6 +241,7 @@ export class AttendanceService {
       attendanceRecords = await this.prismaService.attendance.findMany({
         where: {
           entityType: 'CHILD',
+          attendanceDateId: attendanceDate?.id,
           child: {
             assignments: {
               some: {
@@ -385,17 +276,117 @@ export class AttendanceService {
     };
   }
 
+  // get all attendance records for children
+  // service : done
+  async getChildrenAttendanceRecords(admin_id: number) {
+    // init attendance records if not already done
+    await this.initAllAttendanceForToday();
+
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        id: admin_id,
+      },
+    });
+
+    if (user?.role !== 'TEACHER') {
+      return {
+        message:
+          'Accès refusé. Seuls les enseignants peuvent accéder aux registres de présence des enfants.',
+        status: 403,
+        success: false,
+      };
+    }
+
+    // get the classroom data of the teacher
+    const classRoomData = await this.prismaService.classroom.findFirst({
+      where: {
+        teacherId: admin_id,
+      },
+      select: {
+        name: true,
+        category: true,
+        capacity: true,
+        _count: {
+          select: {
+            assignments: true,
+          },
+        },
+      },
+    });
+
+    if (!classRoomData) {
+      return {
+        message: 'Aucune salle de classe trouvée pour cet enseignant',
+        status: 404,
+        success: false,
+      };
+    }
+
+    // attendance date
+    const attendanceDate = await this.prismaService.attendanceDate.findFirst({
+      where: {
+        date: new Date(new Date().setHours(0, 0, 0, 0)),
+      },
+    });
+    // return all attendance dates with attendance records
+    const childrenAttendanceRecords =
+      await this.prismaService.attendance.findMany({
+        where: {
+          entityType: 'CHILD',
+          attendanceDate: {
+            id: attendanceDate?.id,
+          },
+          child: {
+            assignments: {
+              some: {
+                classroom: {
+                  teacherId: admin_id,
+                },
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+          child: {
+            select: {
+              full_name: true,
+              age: true,
+            },
+          },
+        },
+      });
+
+    if (!childrenAttendanceRecords) {
+      return {
+        message: 'Aucun registre de présence trouvé',
+        status: 404,
+        success: false,
+      };
+    }
+
+    return {
+      message: 'Présences récupérées avec succès',
+      status: 200,
+      success: true,
+      metadata: {
+        classroom: classRoomData,
+        length: childrenAttendanceRecords.length,
+      },
+      attendances: childrenAttendanceRecords,
+    };
+  }
+
+  // staff handling
+
   // staff check-in handler
+  // service : done
   async staffCheckInHandler(
-    id: number,
-    admin_id: number,
-    approve: string,
-    time: string,
+    @Param('id') id: number,
+    @Body() body: AttendanceUpdateDto,
   ) {
     try {
-      // privacy check
-      await this.privacyCheck(admin_id);
-
       // get attendance record
       const attendance = await this.prismaService.attendance.findUnique({
         where: { id },
@@ -411,35 +402,42 @@ export class AttendanceService {
 
       // create date with current date and provided time
       const currentDate = new Date();
-      const [hours, minutes] = time.split(':').map(Number);
-      const checkInDateTime = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate(),
-        hours,
-        minutes,
+      const [hours, minutes] = body.time.split(':').map(Number);
+      const checkInTime = new Date(
+        Date.UTC(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          hours,
+          minutes,
+        ),
       );
 
       const checkInEndTime = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate(),
-        8,
-        15,
+        Date.UTC(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          8,
+          15,
+        ),
       );
 
-      const isLate = checkInDateTime > checkInEndTime;
+      const isLate = checkInTime > checkInEndTime;
       // update attendance record
       await this.prismaService.attendance.update({
         where: { id },
         data: {
-          status: approve === 'false' ? 'ABSENT' : isLate ? 'LATE' : 'PRESENT',
-          checkInTime: approve === 'true' ? checkInDateTime : null,
+          status: isLate ? 'LATE' : 'PRESENT',
+          checkInTime: checkInTime,
+          approvedAt: new Date(),
+          approvedBy: Number(body.admin_id),
+          updatedAt: new Date(),
         },
       });
 
       return {
-        message: 'Attendance record updated successfully',
+        message: 'Check-in time updated successfully',
         status: 200,
         success: true,
       };
@@ -453,17 +451,11 @@ export class AttendanceService {
       };
     }
   }
-  // staff check-out handler
-  async staffCheckOutHandler(
-    id: number,
-    admin_id: number,
-    approve: string,
-    time: string,
-  ) {
-    try {
-      // privacy check
-      await this.privacyCheck(admin_id);
 
+  // staff check-out handler
+  // service : done
+  async staffCheckOutHandler(id: number, body: AttendanceUpdateDto) {
+    try {
       // check the attendance absences
       await this.staffAbsenceHandler();
       // get attendance record
@@ -480,25 +472,29 @@ export class AttendanceService {
 
       // create date with current date and provided time
       const currentDate = new Date();
-      const [hours, minutes] = time.split(':').map(Number);
-      const checkOutDateTime = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth(),
-        currentDate.getDate(),
-        hours,
-        minutes,
+      const [hours, minutes] = body.time.split(':').map(Number);
+      const checkOutTime = new Date(
+        Date.UTC(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          hours,
+          minutes,
+        ),
       );
 
       // update attendance record
       await this.prismaService.attendance.update({
         where: { id },
         data: {
-          checkOutTime: approve === 'true' ? checkOutDateTime : null,
+          checkOutTime: checkOutTime,
+          approvedBy: Number(body.admin_id),
+          updatedAt: new Date(),
         },
       });
 
       return {
-        message: 'Attendance record updated successfully',
+        message: 'Check-out time updated successfully',
         status: 200,
         success: true,
       };
@@ -514,10 +510,11 @@ export class AttendanceService {
   }
 
   // staff mark absent handler
-  async StaffMarkAbsentHandler(id: number, admin_id: number) {
+  async StaffMarkAbsentHandler(
+    @Param('id') id: number,
+    @Body() body: AttendanceDto,
+  ) {
     try {
-      // privacy check
-      await this.privacyCheck(admin_id);
       // get attendance record
       const attendance = await this.prismaService.attendance.findUnique({
         where: { id },
@@ -535,11 +532,15 @@ export class AttendanceService {
         where: { id },
         data: {
           status: 'ABSENT',
+          checkInTime: null,
+          checkOutTime: null,
+          approvedAt: new Date(),
+          approvedBy: Number(body.admin_id),
         },
       });
 
       return {
-        message: 'Attendance record updated successfully',
+        message: 'marking absent updated successfully',
         status: 200,
         success: true,
       };
@@ -595,6 +596,164 @@ export class AttendanceService {
     } catch (error) {
       return {
         message: error.message || 'Erreur lors de la récupération des absences',
+        status: 500,
+        success: false,
+      };
+    }
+  }
+
+  // children handling
+
+  // children check-in handler
+  // service : done
+  async checkInChildrenAttendanceHandler(
+    id: number,
+    @Body() body: AttendanceUpdateDto,
+  ) {
+    try {
+      // get attendance record
+      const attendance = await this.prismaService.attendance.findUnique({
+        where: { id: Number(id) },
+      });
+
+      if (!attendance) {
+        return {
+          message: "Le registre de présence n'existe pas",
+          status: 404,
+          success: false,
+        };
+      }
+
+      const currentDate = new Date();
+      const [hours, minutes] = body.time.split(':').map(Number);
+      const checkInDateTime = new Date(currentDate);
+      checkInDateTime.setUTCHours(hours, minutes, 0, 0);
+
+      // update attendance record
+      await this.prismaService.attendance.update({
+        where: { id },
+        data: {
+          status: 'PRESENT',
+          checkInTime: checkInDateTime,
+          approvedAt: new Date(),
+          approvedBy: Number(body.admin_id),
+          updatedAt: new Date(),
+        },
+      });
+
+      return {
+        message: 'Attendance record updated successfully',
+        status: 200,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message ||
+          "Erreur lors de l'approbation du registre de présence",
+        status: 500,
+        success: false,
+      };
+    }
+  }
+
+  // children check-out handler
+  // service : done
+  async checkOutChildrenAttendanceHandler(
+    @Param('id') id: number,
+    @Body() body: AttendanceUpdateDto,
+  ) {
+    try {
+      // get attendance record
+      const attendance = await this.prismaService.attendance.findUnique({
+        where: { id },
+      });
+      if (!attendance) {
+        return {
+          message: "Le registre de présence n'existe pas",
+          status: 404,
+          success: false,
+        };
+      }
+
+      const currentDate = new Date();
+      const [hours, minutes] = body.time.split(':').map(Number);
+      const checkOutDateTime = new Date(
+        Date.UTC(
+          currentDate.getFullYear(),
+          currentDate.getMonth(),
+          currentDate.getDate(),
+          hours,
+          minutes,
+        ),
+      );
+
+      // update attendance record
+      await this.prismaService.attendance.update({
+        where: { id },
+        data: {
+          checkOutTime: checkOutDateTime,
+          approvedBy: Number(body.admin_id),
+        },
+      });
+
+      return {
+        message: 'Checkout time updated successfully',
+        status: 200,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message ||
+          "Erreur lors de l'approbation du registre de présence",
+        status: 500,
+        success: false,
+      };
+    }
+  }
+
+  // children mark absent handler
+  // service : done
+  async markAbsentChildrenAttendanceHandler(
+    @Param('id') id: number,
+    @Body() body: AttendanceDto,
+  ) {
+    try {
+      // get attendance record
+      const attendance = await this.prismaService.attendance.findUnique({
+        where: { id },
+      });
+      if (!attendance) {
+        return {
+          message: "Le registre de présence n'existe pas",
+          status: 404,
+          success: false,
+        };
+      }
+
+      // update attendance record
+      await this.prismaService.attendance.update({
+        where: { id },
+        data: {
+          status: 'ABSENT',
+          checkInTime: null,
+          checkOutTime: null,
+          approvedAt: new Date(),
+          approvedBy: Number(body.admin_id),
+        },
+      });
+
+      return {
+        message: 'marking absence updated successfully',
+        status: 200,
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message ||
+          "Erreur lors de l'approbation du registre de présence",
         status: 500,
         success: false,
       };
