@@ -2,7 +2,7 @@ import { DayOfWeek } from 'generated/prisma';
 
 export class CreateSchedulePeriodDto {
     name?: string;
-    adminId?: number;
+    admin_id?: number;
     startDate: string;
     endDate?: string;
 }
