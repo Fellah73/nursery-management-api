@@ -261,8 +261,6 @@ export class SchedulesService {
         },
       });
 
-      console.log('Active schedule periods:', schedulePeriods);
-
       if (schedulePeriods.length === 0) {
         return {
           success: false,
@@ -687,7 +685,7 @@ export class SchedulesService {
     }
   }
 
-  // service : failed
+  // service : done
   async createScheduleSlots(
     @Param('periodId') periodId: number,
     @Body() body: CreateScheduleSlotsDto,

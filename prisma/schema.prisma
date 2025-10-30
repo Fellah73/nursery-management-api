@@ -253,8 +253,8 @@ model Attendance {
   status AttendanceStatus @default(PENDING)
 
   // Horaires
-  checkInTime          DateTime?
-  checkOutTime         DateTime?
+  checkInTime  DateTime?
+  checkOutTime DateTime?
 
   // Approbation
   approvedBy Int?
@@ -273,6 +273,35 @@ model Attendance {
   @@unique([attendanceDateId, userId, entityType])
   @@unique([attendanceDateId, childId, entityType])
   @@map("attendances")
+}
+
+model NurserySettings {
+  id Int @id @default(autoincrement())
+
+  // Horaires d'ouverture
+  openingTime String @db.VarChar(5)
+
+  // Configuration des créneaux d'attendance
+  slotDuration  Int     @default(60)
+  slotInterval  Int     @default(15)
+  slotsPerDay   Int     @default(4)
+
+  // Horaires des repas
+  breakfastTime String? @db.VarChar(5)
+  lunchTime     String? @db.VarChar(5)
+  snackTime     String? @db.VarChar(5)
+
+
+  // Durée des repas et siestes
+  breakfastDuration Int @default(30) // minutes
+  lunchDuration     Int @default(60)
+  snackDuration     Int @default(30)
+  napDuration       Int @default(30)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("nursery_settings")
 }
 
 enum EntityType {
