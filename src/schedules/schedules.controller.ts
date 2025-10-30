@@ -12,9 +12,13 @@ import {
 import {
   CreateSchedulePeriodDto,
   CreateScheduleSlotsDto,
+  DeleteScheduleSlotDto,
+  DeleteSlotDto,
   ScheduleDtoGet,
+  SlotDto,
   UpdateSchedulePeriodDto,
   UpdateScheduleSlotDto,
+  UpdateSlotDto,
 } from './dto/schedules-dto';
 import { SchedulesAuthGuard } from './guards/auth/auth.guard';
 import { SchedulesClassroomsGuard } from './guards/services/classroom.guard';
@@ -23,8 +27,10 @@ import {
   ValidateSchedulePeriodPipe,
   ValidateSchedulePeriodUpdatePipe,
 } from './pipes/validate-periods';
+import {
+  ValidateSlotsPipe
+} from './pipes/validate-slots';
 import { SchedulesService } from './schedules.service';
-import { ValidateScheduleSlotsPipe } from './pipes/validate-slots';
 
 @Controller('schedules')
 export class SchedulesController {
@@ -124,22 +130,32 @@ export class SchedulesController {
   async createScheduleSlots(
     @Param('periodId') periodId: string,
     @Query('admin_id') adminId: string,
-    @Body(ValidateScheduleSlotsPipe) body: CreateScheduleSlotsDto,
+    @Body(ValidateSlotsPipe<CreateScheduleSlotsDto, SlotDto>) body: CreateScheduleSlotsDto,
   ) {
     return this.schedulesService.createScheduleSlots(Number(periodId), body);
   }
 
-  // guards : failed , pipe : failed , service : failed
-  @Patch('period/:periodId/slots/bulk')
+  // guards : done , pipe : done , service : done
+  @Patch('classroom/period/:periodId/slots/bulk')
+  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async updateScheduleSlot(
     @Param('periodId') periodId: string,
     @Query('admin_id') adminId: string,
-    @Body() body: UpdateScheduleSlotDto,
+    @Body(ValidateSlotsPipe<UpdateScheduleSlotDto, UpdateSlotDto>)
+    body: UpdateScheduleSlotDto,
   ) {
-    return this.schedulesService.updateScheduleSlot(
-      Number(periodId),
-      Number(adminId),
-      body,
-    );
+    return this.schedulesService.updateScheduleSlot(Number(periodId), body);
+  }
+
+  // guards : done , pipe : done , service : done
+  @Delete('classroom/period/:periodId/slots/bulk')
+  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
+  async deleteScheduleSlot(
+    @Param('periodId') periodId: string,
+    @Query('admin_id') adminId: string,
+    @Body(ValidateSlotsPipe<DeleteScheduleSlotDto, DeleteSlotDto>)
+    body: DeleteScheduleSlotDto,
+  ) {
+    return this.schedulesService.deleteScheduleSlot(Number(periodId), body);
   }
 }

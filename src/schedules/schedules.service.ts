@@ -4,9 +4,12 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateSchedulePeriodDto,
   CreateScheduleSlotsDto,
+  DeleteScheduleSlotDto,
+  DeleteSlotDto,
   ScheduleDtoGet,
   UpdateSchedulePeriodDto,
   UpdateScheduleSlotDto,
+  UpdateSlotDto,
 } from './dto/schedules-dto';
 
 @Injectable()
@@ -731,47 +734,12 @@ export class SchedulesService {
     }
   }
 
-  // service : failed
+  // service : done
   async updateScheduleSlot(
-    periodId: number,
-    adminId: number,
-    body: UpdateScheduleSlotDto,
+    @Param('periodId') periodId: number,
+    @Body() body: UpdateScheduleSlotDto,
   ) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(adminId) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
-      if (!periodId) {
-        return {
-          success: false,
-          message: 'Period ID is required',
-          error: 'Period ID is missing or invalid',
-          statusCode: 400,
-        };
-      }
-
-      const existingPeriod = await this.prismaService.schedulePeriod.findUnique(
-        {
-          where: { id: periodId },
-        },
-      );
-      if (!existingPeriod) {
-        return {
-          success: false,
-          message: 'Schedule period not found',
-          error: 'The specified schedule period does not exist',
-          statusCode: 404,
-        };
-      }
-
       if (!body.slots || body.slots.length === 0) {
         return {
           success: false,
@@ -781,27 +749,139 @@ export class SchedulesService {
         };
       }
 
-      const deletedSlots = await this.prismaService.schedule.deleteMany({
+      const existingSlots = await this.prismaService.schedule.findMany({
         where: { schedulePeriodId: periodId },
       });
 
-      // create new slots
-      for (const slot of body.slots) {
-        await this.prismaService.schedule.create({
-          data: {
+      const newSlots: UpdateSlotDto[] = body.slots;
+      let createdCount = 0,
+        updatedCount = 0;
+
+      newSlots.forEach((newSlot) => {
+        const index = existingSlots.findIndex(
+          (slot) =>
+            slot.dayOfWeek === newSlot.dayOfWeek &&
+            slot.startTime === newSlot.startTime &&
+            slot.endTime === newSlot.endTime,
+        );
+
+        // if doesnt exist, create it
+        if (index === -1) {
+          existingSlots.push(newSlot as Schedule);
+          createdCount++;
+          // If the slot exists, update it
+        } else {
+          existingSlots[index] = { ...existingSlots[index], ...newSlot };
+          updatedCount++;
+        }
+      });
+
+      for (const slot of existingSlots) {
+        // First try to find an existing slot
+        const existingSlot = await this.prismaService.schedule.findFirst({
+          where: {
             schedulePeriodId: periodId,
-            dayOfWeek: slot.dayOfWeek as DayOfWeek, // Type casting, ensure your DTO restricts values
+            dayOfWeek: slot.dayOfWeek,
             startTime: slot.startTime,
-            endTime: slot.endTime,
-            activity: slot.activity,
-            location: slot.location || null,
-            category: slot.category || null,
           },
+        });
+
+        if (existingSlot) {
+          // Update existing slot
+          await this.prismaService.schedule.update({
+            where: { id: existingSlot.id },
+            data: {
+              endTime: slot.endTime,
+              activity: slot.activity,
+              location: slot.location,
+              category: slot.category,
+            },
+          });
+        } else {
+          // Create new slot
+          await this.prismaService.schedule.create({
+            data: {
+              schedulePeriodId: periodId,
+              dayOfWeek: slot.dayOfWeek,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              activity: slot.activity,
+              location: slot.location,
+              category: slot.category,
+            },
+          });
+        }
+      }
+
+      return {
+        message: `${createdCount !== 0 ? createdCount : 'no'} slots created and ${updatedCount !== 0 ? updatedCount : 'no'} slots updated successfully`,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while updating the schedule slot',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async deleteScheduleSlot(
+    @Param('periodId') periodId: number,
+    @Body() body: DeleteScheduleSlotDto,
+  ) {
+    try {
+      if (!body.slots || body.slots.length === 0) {
+        return {
+          success: false,
+          message: 'No slots provided',
+          error: 'The slots array is empty or missing',
+          statusCode: 400,
+        };
+      }
+
+      const existingSlots = await this.prismaService.schedule.findMany({
+        where: { schedulePeriodId: periodId },
+      });
+
+      const slotsToDelete: DeleteSlotDto[] = body.slots;
+      let slotsToDeleteIds: number[] = [];
+      let DeletedCount = 0;
+
+      for (const newSlot of slotsToDelete) {
+        const index = existingSlots.findIndex(
+          (slot) =>
+            slot.dayOfWeek === newSlot.dayOfWeek &&
+            slot.startTime === newSlot.startTime &&
+            slot.endTime === newSlot.endTime,
+        );
+
+        // if the slot doesn't exist
+        if (index === -1) {
+          return {
+            success: false,
+            message: `Slot on ${newSlot.dayOfWeek} from ${newSlot.startTime} to ${newSlot.endTime} not found`,
+            error: 'The specified slot does not exist',
+            statusCode: 404,
+          };
+          // If the slot exists, push it
+        } else {
+          slotsToDeleteIds.push(existingSlots[index].id);
+          DeletedCount++;
+        }
+      }
+
+      for (const slot of slotsToDeleteIds) {
+        await this.prismaService.schedule.delete({
+          where: { id: slot },
         });
       }
 
       return {
-        message: 'Schedule slots updated successfully',
+        message: `${DeletedCount !== 0 ? DeletedCount : 'no'} slots deleted`,
         success: true,
         statusCode: 200,
       };

@@ -1,5 +1,12 @@
-import { IsString, Matches, IsNumber, IsOptional, IsEnum, ValidateNested, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
 import { DayOfWeek } from 'generated/prisma';
 
 export class CreateSchedulePeriodDto {
@@ -41,9 +48,10 @@ export class UpdateSchedulePeriodDto {
   endDate?: string;
 }
 
-export class ScheduleSlotDto {
+export class DeleteSlotDto {
   @IsEnum(DayOfWeek, {
-    message: 'dayOfWeek must be a valid day (SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY)',
+    message:
+      'dayOfWeek must be a valid day (SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY)',
   })
   dayOfWeek: DayOfWeek;
 
@@ -58,7 +66,10 @@ export class ScheduleSlotDto {
     message: 'endTime must be in HH:MM format (e.g., 17:30)',
   })
   endTime: string;
+}
 
+export class SlotDto extends DeleteSlotDto {
+  
   @IsString()
   activity: string;
 
@@ -67,22 +78,31 @@ export class ScheduleSlotDto {
   location?: string;
 }
 
+export class UpdateSlotDto extends SlotDto {
+  @IsOptional()
+  @IsString()
+  category?: string;
+}
+
 export class CreateScheduleSlotsDto {
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => ScheduleSlotDto)
-  slots: ScheduleSlotDto[];
+  @Type(() => SlotDto)
+  slots: SlotDto[];
 }
 
-export class UpdateScheduleSlotDto {
-  slots: {
-    dayOfWeek: DayOfWeek;
-    startTime: string;
-    endTime: string;
-    activity: string;
-    location?: string;
-    category?: string;
-  }[];
+export class UpdateScheduleSlotDto {    
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateSlotDto)
+  slots: UpdateSlotDto[];
+}
+
+export class DeleteScheduleSlotDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DeleteSlotDto)
+  slots: DeleteSlotDto[];
 }
 
 export class ScheduleDtoGet {
