@@ -82,7 +82,7 @@ export class MenuService {
           success: false,
         };
       }
-      await this.handleMenusActivation();
+
       const existingPeriod = await this.prismaService.menuPeriod.findFirst({
         where: {
           category: category,
@@ -208,8 +208,6 @@ export class MenuService {
   // service : done
   async getMenuMeals(category: Category) {
     try {
-      await this.handleMenusActivation();
-
       if (!(category in Category)) {
         return {
           status: 400,
@@ -217,6 +215,8 @@ export class MenuService {
           success: false,
         };
       }
+
+      await this.handleMenusActivation();
 
       const activeMenuPeriods = await this.prismaService.menuPeriod.findMany({
         where: {
@@ -292,7 +292,6 @@ export class MenuService {
   // service : done
   async getMenuMealsByPeriod(@Param('periodId') periodId: string) {
     try {
-      await this.handleMenusActivation();
       const menuPeriod = await this.prismaService.menuPeriod.findUnique({
         where: { id: Number(periodId) },
       });
@@ -303,6 +302,9 @@ export class MenuService {
           success: false,
         };
       }
+
+      await this.handleMenusActivation();
+
       const menuMeals = await this.prismaService.menu.findMany({
         where: {
           menuPeriodId: {
@@ -378,24 +380,11 @@ export class MenuService {
   async deleteMenuPeriod(@Param('periodId') periodId: string) {
     try {
       await this.handleMenusActivation();
-      const menuPeriod = await this.prismaService.menuPeriod.findUnique({
-        where: { id: Number(periodId) },
-        include: { menus: true },
-      });
-      if (!menuPeriod) {
-        return {
-          status: 404,
-          message: 'Menu period not found',
-          success: false,
-        };
-      }
 
-      if (menuPeriod.menus.length > 0) {
-        // delete all the meals associated with this period
-        await this.prismaService.menu.deleteMany({
-          where: { menuPeriodId: Number(periodId) },
-        });
-      }
+      // delete all the meals associated with this period
+      await this.prismaService.menu.deleteMany({
+        where: { menuPeriodId: Number(periodId) },
+      });
 
       // delete the period
       await this.prismaService.menuPeriod.delete({
@@ -422,17 +411,19 @@ export class MenuService {
     @Param('periodId') periodId: string,
   ) {
     try {
-      await this.handleMenusActivation();
-
       let newPeriodId: string = '';
       if (periodId === 'new') {
         // create a new current period for the specified category
-        await this.createMenuPeriod(
+        const newPeriod = await this.createMenuPeriod(
           {
             category: body.category,
           },
           'current',
         );
+
+        if (!newPeriod.success) {
+          console.log('Error creating new menu period:', newPeriod.message);
+        }
 
         newPeriodId = await this.prismaService.menuPeriod
           .findFirst({
@@ -466,29 +457,18 @@ export class MenuService {
         };
       }
 
-      // make sure no duplicate from the request body
-      const newMeals = new Map<string, any>();
-      for (const meal of body.meals) {
-        const key = `${meal.dayOfWeek}-${meal.mealType}`;
-        if (!newMeals.has(key)) {
-          newMeals.set(key, meal);
-        }
-      }
-
-      let uniqueMealsArray = Array.from(newMeals.values());
-
       const existingMeals = await this.prismaService.menu.findMany({
         where: { menuPeriodId: Number(finalPeriodId) },
       });
 
+      // delete all existing meals for this period
       if (existingMeals.length > 0) {
-        // delete all existing meals for this period to avoid duplicates
         await this.prismaService.menu.deleteMany({
           where: { menuPeriodId: Number(finalPeriodId) },
         });
       }
 
-      const menusToCreate = uniqueMealsArray.map((meal) => ({
+      const menusToCreate = body.meals.map((meal) => ({
         dayOfWeek: meal.dayOfWeek!,
         mealType: meal.mealType!,
         starter: meal.starter!,
@@ -517,7 +497,7 @@ export class MenuService {
       }
       return {
         status: 201,
-        message: `${createdMenus.count} menus created successfully`,
+        message: `${createdMenus.count} meals created successfully`,
         success: true,
       };
     } catch (error) {
@@ -535,17 +515,25 @@ export class MenuService {
     @Param('periodId') periodId: string,
   ) {
     try {
-      await this.handleMenusActivation();
-
       const finalPeriodId = periodId;
 
       const menuPeriod = await this.prismaService.menuPeriod.findUnique({
         where: { id: Number(finalPeriodId) },
       });
+
       if (!menuPeriod) {
         return {
           status: 404,
           message: 'Menu period not found',
+          success: false,
+        };
+      }
+
+      if (body.category && body.category !== menuPeriod.category) {
+        return {
+          status: 400,
+          message:
+            'Category in request body does not match menu period category',
           success: false,
         };
       }
@@ -559,6 +547,7 @@ export class MenuService {
       }
 
       // make sure no duplicate from the request body
+      // but it's already check in the pipeline, just to be sure
       const newMeals = new Map<string, any>();
       for (const meal of body.meals) {
         const key = `${meal.dayOfWeek}-${meal.mealType}`;
@@ -570,7 +559,7 @@ export class MenuService {
       let uniqueMealsArray = Array.from(newMeals.values());
 
       const existingMeals = await this.prismaService.menu.findMany({
-        where: { menuPeriodId: Number(finalPeriodId) },
+        where: { menuPeriodId: Number(finalPeriodId) },   
       });
 
       if (existingMeals.length > 0) {
@@ -611,6 +600,7 @@ export class MenuService {
         special_note: meal.special_note!,
       }));
 
+      // create updated meals (original + new)
       const updatedMenus = await this.prismaService.menu.createMany({
         data: menusToUpdate.map((menu) => ({
           ...menu,
@@ -648,6 +638,7 @@ export class MenuService {
   }
 
   async handleMenusActivation() {
+    console.log('Handling menus activation and cleanup...');
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0); // Set to start of day for date-only comparison
 
