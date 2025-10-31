@@ -414,8 +414,6 @@ export class SchedulesService {
         },
       });
 
-      console.log('Active schedule periods:', schedulePeriods);
-
       if (schedulePeriods.length === 0) {
         return {
           success: false,
@@ -487,7 +485,7 @@ export class SchedulesService {
           statusCode: 404,
         };
       }
-      await this.handleScheduleActivation();
+
       const existingPeriod = await this.prismaService.schedulePeriod.findFirst({
         where: {
           classroomId,
@@ -577,8 +575,6 @@ export class SchedulesService {
     @Body() body: UpdateSchedulePeriodDto,
   ) {
     try {
-      await this.handleScheduleActivation();
-
       const existingPeriod = await this.prismaService.schedulePeriod.findUnique(
         {
           where: { id: periodId },
@@ -656,6 +652,8 @@ export class SchedulesService {
   // service : done
   async deleteSchedulePeriod(@Param('periodId') periodId: number) {
     try {
+      await this.handleScheduleActivation();
+
       // delete associated schedules slots first
       await this.prismaService.schedule.deleteMany({
         where: { schedulePeriodId: periodId },
@@ -702,6 +700,15 @@ export class SchedulesService {
           statusCode: 400,
         };
       }
+
+      const existingSlots = await this.prismaService.schedule.findMany({
+        where: { schedulePeriodId: periodId },
+      });
+
+      // Delete existing slots for the period
+      await this.prismaService.schedule.deleteMany({
+        where: { schedulePeriodId: periodId },
+      });
 
       const createdSlots: Schedule[] = [];
       for (const slot of body.slots) {
@@ -895,6 +902,7 @@ export class SchedulesService {
     }
   }
 
+  // service : done
   async handleScheduleActivation() {
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0); // Set to start of day for date-only comparison
@@ -954,21 +962,12 @@ export class SchedulesService {
       }
     }
 
-    console.log(classroomActiveMap);
-
     for (const [classroomId, periods] of classroomActiveMap.entries()) {
       if (periods.length > 1) {
-        console.log(
-          `Classroom ${classroomId} has ${periods.length} active periods. Cleaning up...`,
-        );
         // More than one active period for this classroom
         // Delete all but the most recent one
         const periodsToDelete = periods.slice(0, -1); // All but the last one
         const periodIdsToDelete = periodsToDelete.map((p) => p.id);
-
-        console.log(
-          `Deleting periods with IDs: ${periodIdsToDelete.join(', ')}`,
-        );
 
         // Delete slots first
         await this.prismaService.schedule.deleteMany({
@@ -979,8 +978,6 @@ export class SchedulesService {
         await this.prismaService.schedulePeriod.deleteMany({
           where: { id: { in: periodIdsToDelete } },
         });
-      } else {
-        console.log(`Classroom ${classroomId} has only one active period.`);
       }
     }
     return;

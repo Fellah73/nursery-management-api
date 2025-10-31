@@ -24,12 +24,10 @@ import { SchedulesAuthGuard } from './guards/auth/auth.guard';
 import { SchedulesClassroomsGuard } from './guards/services/classroom.guard';
 import { SchedulesPeriodGuard } from './guards/services/period.guard';
 import {
-  ValidateSchedulePeriodPipe,
+  ValidateSchedulePeriodCreationPipe,
   ValidateSchedulePeriodUpdatePipe,
 } from './pipes/validate-periods';
-import {
-  ValidateSlotsPipe
-} from './pipes/validate-slots';
+import { ValidateSlotsPipe } from './pipes/validate-slots';
 import { SchedulesService } from './schedules.service';
 
 @Controller('schedules')
@@ -37,7 +35,8 @@ export class SchedulesController {
   constructor(private readonly schedulesService: SchedulesService) {}
 
   // Global schedule operations
-  // guards : done , service : done
+
+  // guards : done , service : done , handleCall : done
   @Get('/period')
   @UseGuards(SchedulesAuthGuard)
   async getGlobalSchedulePeriod(
@@ -47,14 +46,14 @@ export class SchedulesController {
     return this.schedulesService.getGlobalSchedulePeriods(query, type);
   }
 
-  // guards : done , service : done
+  // guards : done , service : done , handleCall : done
   @Get('/classroom/unscheduled')
   @UseGuards(SchedulesAuthGuard)
   async getClassroomsWithoutSchedule(@Query('admin_id') adminId: string) {
     return this.schedulesService.getClassroomsWithoutSchedule();
   }
 
-  // guards : done , service : done
+  // guards : done , service : done , handleCall : done
   @Get('period/:periodId')
   @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async getSchedulePeriodById(
@@ -66,7 +65,7 @@ export class SchedulesController {
 
   // Classroom-level operations
 
-  // guards : done , service : done
+  // guards : done , service : done , handleCall : done
   @Get('/classroom/:classroomId')
   @UseGuards(SchedulesAuthGuard, SchedulesClassroomsGuard)
   async getSchedulePeriods(
@@ -76,7 +75,7 @@ export class SchedulesController {
     return this.schedulesService.getSchedulesByClassroom(Number(classroomId));
   }
 
-  // guards : done , service : done
+  // guards : done , service : done , handleCall : done
   @Get('/classroom/:classroomId/week')
   @UseGuards(SchedulesAuthGuard, SchedulesClassroomsGuard)
   async getWeeklySchedule(
@@ -86,13 +85,13 @@ export class SchedulesController {
     return this.schedulesService.getWeeklyCompleteSchedule(Number(classroomId));
   }
 
-  // guards : done , pipe: done , service : done
+  // guards : done , pipe: done , service : done , handleCall : done
   @Post('/classroom/:classroomId/period')
   @UseGuards(SchedulesAuthGuard, SchedulesClassroomsGuard)
   async createSchedulePeriod(
     @Param('classroomId') classroomId: string,
     @Query('type') type: string,
-    @Body(ValidateSchedulePeriodPipe) body: CreateSchedulePeriodDto,
+    @Body(ValidateSchedulePeriodCreationPipe) body: CreateSchedulePeriodDto,
   ) {
     return this.schedulesService.createSchedulePeriod(
       Number(classroomId),
@@ -102,7 +101,7 @@ export class SchedulesController {
   }
 
   // Period-level operations
-  // guards : done , pipe : done , service : done
+  // guards : done , pipe : done , service : done , handleCall : done
   @Patch('classroom/period/:periodId')
   @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async updateSchedulePeriod(
@@ -113,7 +112,7 @@ export class SchedulesController {
     return this.schedulesService.updateSchedulePeriod(Number(periodId), body);
   }
 
-  // guards : done , service : done
+  // guards : done , service : done , handleCall : done
   @Delete('classroom/period/:periodId')
   @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async deleteSchedulePeriod(
@@ -124,18 +123,19 @@ export class SchedulesController {
   }
 
   // Slot-level operations
-  // guards : done , pipe : done , service : done
+  // guards : done , pipe : done , service : done , handleCall : done
   @Post('classroom/period/:periodId/slots/bulk')
   @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async createScheduleSlots(
     @Param('periodId') periodId: string,
     @Query('admin_id') adminId: string,
-    @Body(ValidateSlotsPipe<CreateScheduleSlotsDto, SlotDto>) body: CreateScheduleSlotsDto,
+    @Body(ValidateSlotsPipe<CreateScheduleSlotsDto, SlotDto>)
+    body: CreateScheduleSlotsDto,
   ) {
     return this.schedulesService.createScheduleSlots(Number(periodId), body);
   }
 
-  // guards : done , pipe : done , service : done
+  // guards : done , pipe : done , service : done , handleCall : done
   @Patch('classroom/period/:periodId/slots/bulk')
   @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async updateScheduleSlot(
@@ -147,7 +147,7 @@ export class SchedulesController {
     return this.schedulesService.updateScheduleSlot(Number(periodId), body);
   }
 
-  // guards : done , pipe : done , service : done
+  // guards : done , pipe : done , service : done , handleCall : done
   @Delete('classroom/period/:periodId/slots/bulk')
   @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
   async deleteScheduleSlot(

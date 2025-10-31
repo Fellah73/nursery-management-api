@@ -2,14 +2,16 @@
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import { NurserySettings } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { SchedulesService } from '../schedules.service';
 
 @Injectable()
 export class ValidateSlotsPipe<T, U> implements PipeTransform {
-  constructor(private prismaService: PrismaService) {}
-  async transform(
-    value: T,
-  ): Promise<T> {
-    const configNursery : NurserySettings | null = await this.getNurseryConfig();
+  constructor(
+    private prismaService: PrismaService,
+    private scheduleService: SchedulesService,
+  ) {}
+  async transform(value: T): Promise<T> {
+    const configNursery: NurserySettings | null = await this.getNurseryConfig();
     if (!configNursery) {
       throw new BadRequestException('Nursery configuration not found');
     }
@@ -17,9 +19,7 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
     const allowedStartTimes = this.getSlotsStartTimes(configNursery);
     console.log('Allowed Start Times:', allowedStartTimes);
 
-    const groupedSlots: Record<string, U[]> = this.groupByDay(
-      value['slots'],
-    );
+    const groupedSlots: Record<string, U[]> = this.groupByDay(value['slots']);
     console.log('Grouped Slots:', groupedSlots);
 
     // iterate over each day's slots to perform validations
@@ -40,27 +40,25 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
       this.checkSlotsTiming(slots, allowedStartTimes);
     }
 
+    // handle schedule activation call
+    this.scheduleService.handleScheduleActivation();
+
     return value;
   }
 
   // Group slots per dayOfWeek
-  private groupByDay(
-    slots: U[],
-  ): Record<string, U[]> {
-    return slots.reduce(
-      (acc: Record<string, U[]>, slot: U) => {
-        if (!acc[slot["dayOfWeek"]]) {
-          acc[slot["dayOfWeek"]] = [];
-        }
-        acc[slot["dayOfWeek"]].push(slot);
-        return acc;
-      },
-      {},
-    );
+  private groupByDay(slots: U[]): Record<string, U[]> {
+    return slots.reduce((acc: Record<string, U[]>, slot: U) => {
+      if (!acc[slot['dayOfWeek']]) {
+        acc[slot['dayOfWeek']] = [];
+      }
+      acc[slot['dayOfWeek']].push(slot);
+      return acc;
+    }, {});
   }
 
   // Fetch nursery configuration
-  private async getNurseryConfig() : Promise<NurserySettings | null> {
+  private async getNurseryConfig(): Promise<NurserySettings | null> {
     return this.prismaService.nurserySettings.findFirst();
   }
 
@@ -69,11 +67,11 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
     const seen = new Set<string>();
 
     for (const slot of slots) {
-      const key = `${slot["startTime"]}-${slot["endTime"]}`;
+      const key = `${slot['startTime']}-${slot['endTime']}`;
 
       if (seen.has(key)) {
         throw new BadRequestException(
-          `Slot dupliqué détecté: ${slot["dayOfWeek"]} de ${slot["startTime"]} à ${slot["endTime"]}`,
+          `Slot dupliqué détecté: ${slot['dayOfWeek']} de ${slot['startTime']} à ${slot['endTime']}`,
           'Veuillez supprimer les doublons et réessayer.',
         );
       }
@@ -85,35 +83,32 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
   private checkTimeHandler(slots: U[], slotDuration: number) {
     for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
-      const startMinutes = this.timeToMinutes(slot["startTime"]);
-      const endMinutes = this.timeToMinutes(slot["endTime"]);
+      const startMinutes = this.timeToMinutes(slot['startTime']);
+      const endMinutes = this.timeToMinutes(slot['endTime']);
 
       if (startMinutes >= endMinutes) {
-      throw new BadRequestException(
-        `Horaire invalide pour ${slot["dayOfWeek"]} (slot ${i + 1}): l'heure de début (${slot["startTime"]}) doit être avant l'heure de fin (${slot["endTime"]})`,
-      );
+        throw new BadRequestException(
+          `Horaire invalide pour ${slot['dayOfWeek']} (slot ${i + 1}): l'heure de début (${slot['startTime']}) doit être avant l'heure de fin (${slot['endTime']})`,
+        );
       }
 
       const duration = endMinutes - startMinutes;
       if (duration !== slotDuration) {
-      throw new BadRequestException(
-        `Durée de créneau invalide pour ${slot["dayOfWeek"]} (slot ${i + 1}): la durée doit être de ${slotDuration} minutes.`,
-      );
+        throw new BadRequestException(
+          `Durée de créneau invalide pour ${slot['dayOfWeek']} (slot ${i + 1}): la durée doit être de ${slotDuration} minutes.`,
+        );
       }
     }
   }
 
   // check slots start times according to interval and durations
-  private checkSlotsTiming(
-    slots: U[],
-    slotsStartTimes: string[],
-  ) {
-    for (let i=0 ; i < slots.length ; i++) {
+  private checkSlotsTiming(slots: U[], slotsStartTimes: string[]) {
+    for (let i = 0; i < slots.length; i++) {
       const slot = slots[i];
       // check starting time
-      if (!slotsStartTimes.includes(slot["startTime"])) {
+      if (!slotsStartTimes.includes(slot['startTime'])) {
         throw new BadRequestException(
-          `Heure de début de créneau invalide pour ${slot["dayOfWeek"]} (slot ${i + 1}): ${slot["startTime"]},les heures de début autorisées sont: ${slotsStartTimes.join(', ')}`,
+          `Heure de début de créneau invalide pour ${slot['dayOfWeek']} (slot ${i + 1}): ${slot['startTime']},les heures de début autorisées sont: ${slotsStartTimes.join(', ')}`,
         );
       }
     }
