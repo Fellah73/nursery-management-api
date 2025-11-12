@@ -34,6 +34,22 @@ export class CreateMenuPeriodDto {
   category: Category;
 }
 
+export class UpdateMenuPeriodDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, {
+    message: 'startDate must be in YYYY-MM-DD format (e.g., 2025-12-25)',
+  })
+  startDate?: Date;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/, {
+    message: 'endDate must be in YYYY-MM-DD format (e.g., 2025-12-25)',
+  })
+  endDate?: Date;
+}
+
 export class MealSlotDto {
   @IsEnum(DayOfWeek, {
     message:

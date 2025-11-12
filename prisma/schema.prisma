@@ -81,7 +81,7 @@ model Children {
 model Classroom {
   id       Int      @id @default(autoincrement())
   name     String   @db.VarChar(100)
-  category Category // BEBE, PETIT, MOYEN, GRAND
+  category Category 
   ageMin   Int
   ageMax   Int
   capacity Int?
@@ -100,7 +100,6 @@ model Classroom {
   @@map("classrooms")
 }
 
-// Table d'affectation pour gérer l'assignation des enfants aux classes
 model Assignment {
   id          Int       @id @default(autoincrement())
   classroomId Int

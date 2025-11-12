@@ -1,7 +1,11 @@
 import { Body, Injectable, Param, Query } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateMenuMealsDto, CreateMenuPeriodDto } from './dto/menu-dto';
+import {
+  CreateMenuMealsDto,
+  CreateMenuPeriodDto,
+  UpdateMenuPeriodDto,
+} from './dto/menu-dto';
 
 @Injectable()
 export class MenuService {
@@ -121,6 +125,53 @@ export class MenuService {
       if (!newMenuPeriod) {
         return {
           status: 500,
+          message: 'Failed to update menu period',
+          success: false,
+        };
+      }
+
+      return {
+        status: 200,
+        message: 'Menu period updated successfully',
+        success: true,
+        data: newMenuPeriod.id,
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        message: error.message || 'Internal server error',
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async updateMenuPeriod(
+    @Body() body: UpdateMenuPeriodDto,
+    @Param('periodId') periodId: string,
+  ) {
+    try {
+      const existingPeriod = await this.prismaService.menuPeriod.findFirst({
+        where: {
+          id: Number(periodId),
+        },
+      });
+
+      const updatedMenuPeriod = await this.prismaService.menuPeriod.update({
+        where: { id: Number(periodId) },
+        data: {
+          startDate: body.startDate
+            ? new Date(body.startDate + 'T00:00:00.000Z')
+            : existingPeriod!.startDate,
+          endDate: body.endDate
+            ? new Date(body.endDate + 'T00:00:00.000Z')
+            : existingPeriod!.endDate,
+        },
+      });
+
+      if (!updatedMenuPeriod) {
+        return {
+          status: 500,
           message: 'Failed to create menu period',
           success: false,
         };
@@ -130,7 +181,6 @@ export class MenuService {
         status: 201,
         message: 'Menu period created successfully',
         success: true,
-        data: newMenuPeriod.id,
       };
     } catch (error) {
       return {
@@ -559,7 +609,7 @@ export class MenuService {
       let uniqueMealsArray = Array.from(newMeals.values());
 
       const existingMeals = await this.prismaService.menu.findMany({
-        where: { menuPeriodId: Number(finalPeriodId) },   
+        where: { menuPeriodId: Number(finalPeriodId) },
       });
 
       if (existingMeals.length > 0) {

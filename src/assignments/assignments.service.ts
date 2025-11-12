@@ -1,30 +1,28 @@
-import { Injectable } from '@nestjs/common';
+import { Body, Injectable } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateAssignmenstDto } from './dto/assignments-dto';
+import { CreateAssignmentsDto } from './dto/assignments-dto';
 
 @Injectable()
 export class AssignmentsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async createAssignment(admin_id: string, body: CreateAssignmenstDto) {
+  private static ageRangeByCategory = {
+    BEBE: { min: 1, max: 2 },
+    PETIT: { min: 2, max: 3 },
+    MOYEN: { min: 3, max: 4 },
+    GRAND: { min: 4, max: 5 },
+  };
+
+  // service : done
+  async createAssignment(@Body() body: CreateAssignmentsDto) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
       const { childId, classroomId } = body;
 
       const child = await this.prismaService.children.findUnique({
         where: { id: Number(childId) },
       });
+
       if (!child) {
         return {
           success: false,
@@ -33,17 +31,49 @@ export class AssignmentsService {
           statusCode: 404,
         };
       }
+
+      const existingAssignment = await this.prismaService.assignment.count({
+        where: { childId: Number(childId) },
+      });
+
+      // check if child is already assigned
+      if (existingAssignment > 0) {
+        return {
+          success: false,
+          message: 'Child is already assigned to a classroom',
+          error: 'Each child can only have one assignment at a time',
+          statusCode: 400,
+        };
+      }
+
+      const classroomAssignments = await this.prismaService.assignment.count({
+        where: { classroomId: Number(classroomId) },
+      });
+
       const classroom = await this.prismaService.classroom.findUnique({
         where: { id: Number(classroomId) },
       });
-      if (!classroom) {
+
+      // check if child's age is appropriate for the classroom
+      if (child.age < classroom!.ageMin || child.age > classroom!.ageMax) {
         return {
           success: false,
-          message: 'Classroom not found',
-          error: 'The specified classroom does not exist',
-          statusCode: 404,
+          message: 'Child age not appropriate for this classroom',
+          error: `Child age ${child.age} is not within the classroom age range of ${classroom!.ageMin} to ${classroom!.ageMax} (category: ${classroom!.category})`,
+          statusCode: 400,
         };
       }
+
+      // check if classroom can be assigned more children
+      if (classroomAssignments >= (classroom!.capacity || 0)) {
+        return {
+          success: false,
+          message: 'Classroom capacity reached',
+          error: 'Cannot assign more children to this classroom',
+          statusCode: 400,
+        };
+      }
+
       const assignment = await this.prismaService.assignment.create({
         data: {
           childId: Number(childId),
@@ -59,9 +89,16 @@ export class AssignmentsService {
           statusCode: 500,
         };
       }
+
+      const formattedAssignment = {
+        id: assignment.id,
+        childId: assignment.childId,
+        classroomId: assignment.classroomId,
+      };
+
       return {
         message: 'Assignment created successfully',
-        assignment,
+        assignment: formattedAssignment,
         success: true,
         statusCode: 201,
       };
@@ -75,33 +112,85 @@ export class AssignmentsService {
     }
   }
 
-  async deleteAssignment(id: string, admin_id: string) {
+  // service : done
+  async updateAssignment(id: string, body: { classroomId: string }) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
+      const classRoom = await this.prismaService.classroom.findUnique({
+        where: { id: Number(body.classroomId) },
       });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
 
       const assignmentExists = await this.prismaService.assignment.findUnique({
         where: { id: Number(id) },
+        include: { child: true },
       });
 
-      if (!assignmentExists) {
+      // check if child's age is appropriate for the classroom
+      if (
+        assignmentExists!.child.age < classRoom!.ageMin ||
+        assignmentExists!.child.age > classRoom!.ageMax
+      ) {
         return {
           success: false,
-          message: 'Assignment not found',
-          error: 'The specified assignment does not exist',
-          statusCode: 404,
+          message: 'Child age not appropriate for this classroom',
+          error: `Child age ${assignmentExists!.child.age} is not within the classroom age range of ${classRoom!.ageMin} to ${classRoom!.ageMax} (category: ${classRoom!.category})`,
+          statusCode: 400,
         };
       }
 
+      const classroomAssignments = await this.prismaService.assignment.count({
+        where: { classroomId: Number(body.classroomId) },
+      });
+
+      // check if classroom can be assigned more children
+      if (classroomAssignments >= (classRoom!.capacity || 0)) {
+        return {
+          success: false,
+          message: 'Classroom capacity reached',
+          error: 'Cannot assign more children to this classroom',
+          statusCode: 400,
+        };
+      }
+
+      const updatedAssignment = await this.prismaService.assignment.update({
+        where: { id: Number(id) },
+        data: { classroomId: Number(body.classroomId) },
+      });
+
+      if (!updatedAssignment) {
+        return {
+          success: false,
+          message: 'Failed to update assignment',
+          error: 'cannot update assignment',
+          statusCode: 500,
+        };
+      }
+
+      const formattedAssignment = {
+        id: updatedAssignment.id,
+        childId: updatedAssignment.childId,
+        classroomId: updatedAssignment.classroomId,
+      };
+
+      return {
+        message: 'Assignment updated successfully',
+        assignment: formattedAssignment,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message:
+          error.message || 'An error occurred while updating the assignment',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async deleteAssignment(id: string) {
+    try {
       const assignment = await this.prismaService.assignment.delete({
         where: { id: Number(id) },
       });
@@ -130,92 +219,12 @@ export class AssignmentsService {
     }
   }
 
-  async getAssignmentsByClass(id: number, admin_id: string) {
+  // service : done
+  async getChildrenNotAssigned(category?: Category) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
-
-      const classExists = await this.prismaService.classroom.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!classExists) {
-        return {
-          success: false,
-          message: 'Classroom not found',
-          error: 'The specified classroom does not exist',
-          statusCode: 404,
-        };
-      }
-
-      const allAssignments = await this.prismaService.assignment.findMany({
-        where: { classroomId: Number(id) },
-        include: {
-          child: {
-            select: {
-              id: true,
-              full_name: true,
-              profile_picture: true,
-              gender: true,
-              birth_date: true,
-              entry_date: true,
-            },
-          },
-        },
-      });
-
-      return {
-        message: 'assignments retrieved successfully',
-        assignments: allAssignments,
-        success: true,
-        statusCode: 200,
-      };
-    } catch (error) {
-      return {
-        message: 'An error occurred while retrieving the assignments',
-        error: error.message,
-        statusCode: 500,
-        success: false,
-      };
-    }
-  }
-
-  async getChildrenNotAssigned(admin_id: string, category?: Category) {
-    try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
-      const classRoom = await this.prismaService.classroom.findFirst({
-        where: { category: category },
-      });
-      if (!classRoom) {
-        return {
-          success: false,
-          message: 'no category of this type',
-          error: 'The specified classroom does not exist',
-          statusCode: 404,
-        };
-      }
-
-      const minAge = classRoom.ageMin;
-      const maxAge = classRoom.ageMax;
+      // get the category age range
+      const minAge = AssignmentsService.ageRangeByCategory[category!].min;
+      const maxAge = AssignmentsService.ageRangeByCategory[category!].max;
 
       const children = await this.prismaService.children.findMany({
         where: {
@@ -253,55 +262,68 @@ export class AssignmentsService {
     }
   }
 
-  async getAvailableClasses(admin_id: string, class_id?: string) {
+  // service : done
+  async getAvailableClasses(class_id?: string) {
     try {
-      
+      let currentClassCategory: Category | undefined = undefined;
 
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
+      // get current class category if class_id is provided
+      if (class_id) {
+        currentClassCategory = await this.prismaService.classroom
+          .findUnique({
+            where: { id: Number(class_id) },
+          })
+          .then((c) => c?.category);
+
+        // if need the classroom but it doesn't exist
+        if (!currentClassCategory) {
+          return {
+            success: false,
+            message: 'Classroom not found',
+            error: 'The specified classroom does not exist',
+            statusCode: 404,
+          };
+        }
       }
 
-      const currentClass = await this.prismaService.classroom.findUnique({
-        where: { id: Number(class_id) },
-      });
+      const classQuery = currentClassCategory
+        ? { category: currentClassCategory }
+        : {};
 
-      const classQuery = currentClass ? { category: currentClass.category } : {};
-
+      // get available classes (except current class if class_id provided)
       const classes = await this.prismaService.classroom.findMany({
         where: {
           ...classQuery,
-          ...(class_id ? { id: { not: Number(class_id) } } : {})
+          ...(class_id ? { id: { not: Number(class_id) } } : {}),
         },
         include: {
           _count: {
-        select: { assignments: true },
+            select: { assignments: true },
           },
         },
       });
 
       // Filter classes where the number of assignments is less than capacity
       const availableClasses = classes.filter(
-        (classroom) => classroom._count.assignments < classroom.capacity!
+        (classroom) => classroom._count.assignments < classroom.capacity!,
       );
 
-      return {
-        message: 'Available classes retrieved successfully',
-        classes: availableClasses,
-        success: true,
-        statusCode: 200,
-      };
+      const formatedClasses = availableClasses.map((classroom) => ({
+        id: classroom.id,
+        name: classroom.name,
+        category: classroom.category,
+        ageMin: classroom.ageMin,
+        ageMax: classroom.ageMax,
+        capacity: classroom.capacity,
+        teacher: classroom.teacherId,
+        _count: {
+          assignments: classroom._count.assignments,
+        },
+      }));
 
       return {
         message: 'Available classes retrieved successfully',
-        classes,
+        classes: formatedClasses,
         success: true,
         statusCode: 200,
       };
@@ -315,83 +337,35 @@ export class AssignmentsService {
     }
   }
 
-  async updateAssignment(
-    id: string,
-    admin_id: string,
-    body: { classroomId: string },
-  ) {
+  // service : done
+  async getAssignmentsByClass(id: number) {
     try {
-      if (!body.classroomId) {
-        return {
-          success: false,
-          message: 'Invalid request',
-          error: 'Classroom ID is required',
-          statusCode: 400,
-        };
-      }
-
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
+  
+      const allAssignments = await this.prismaService.assignment.findMany({
+        where: { classroomId: Number(id) },
+        include: {
+          child: {
+            select: {
+              id: true,
+              full_name: true,
+              profile_picture: true,
+              gender: true,
+              birth_date: true,
+              entry_date: true,
+            },
+          },
+        },
       });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
-
-      const assignmentExists = await this.prismaService.assignment.findUnique({
-        where: { id: Number(id) },
-      });
-
-      if (!assignmentExists) {
-        return {
-          success: false,
-          message: 'Assignment not found',
-          error: 'The specified assignment does not exist',
-          statusCode: 404,
-        };
-      }
-
-      const classroom = await this.prismaService.classroom.findUnique({
-        where: { id: Number(body.classroomId) },
-      });
-
-      if (!classroom) {
-        return {
-          success: false,
-          message: 'Classroom not found',
-          error: 'The specified classroom does not exist',
-          statusCode: 404,
-        };
-      }
-
-      const updatedAssignment = await this.prismaService.assignment.update({
-        where: { id: Number(id) },
-        data: { classroomId: Number(body.classroomId) },
-      });
-
-      if (!updatedAssignment) {
-        return {
-          success: false,
-          message: 'Failed to update assignment',
-          error: 'cannot update assignment',
-          statusCode: 500,
-        };
-      }
 
       return {
-        message: 'Assignment updated successfully',
-        assignment: updatedAssignment,
+        message: 'assignments retrieved successfully',
+        assignments: allAssignments,
         success: true,
         statusCode: 200,
       };
     } catch (error) {
       return {
-        message:
-          error.message || 'An error occurred while updating the assignment',
+        message: 'An error occurred while retrieving the assignments',
         error: error.message,
         statusCode: 500,
         success: false,

@@ -81,7 +81,6 @@ export class ValidateMenuPeriodCreationPipe
 }
 
 // service : done
-// comming soon
 export class ValidateMenuPeriodUpdatePipe
   extends ValidateMenuPeriodPipe<CreateMenuPeriodDto>
   implements PipeTransform
@@ -90,6 +89,11 @@ export class ValidateMenuPeriodUpdatePipe
     super(menuService);
   }
   transform(value: CreateMenuPeriodDto): CreateMenuPeriodDto {
+    if (!value.startDate && !value.endDate) {
+      throw new BadRequestException(
+        'At least one of startDate or endDate must be provided for update',
+      );
+    }
     super.transform(value);
     return value;
   }
