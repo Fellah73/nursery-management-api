@@ -1,55 +1,95 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { Category } from 'generated/prisma';
 import { ChildrenService } from './children.service';
 import { ChildrenDtoGet, CreateChildDto } from './dto/children-dto';
-import { Category } from 'generated/prisma';
+import { ChildrenAuthGuard } from './gurads/auth/auth.guard';
+import { ChildrenGuard } from './gurads/child/child.guard';
+import { ValidateChildCreationPipe } from './pipe/validate-child';
+import { ValidateChildUpdatePipe } from './pipe/validate-update';
 
 @Controller('children')
 export class ChildrenController {
   constructor(private readonly childrenService: ChildrenService) {}
 
-  @Get() // Get /children to retrieve all children
+  // guards : done , service : done
+  @Get()
+  @UseGuards(ChildrenAuthGuard)
   getChildren(@Query() query: ChildrenDtoGet) {
     return this.childrenService.getChildren(query);
   }
 
-  @Post() // Post /children to create a new child
+  // guards : done , pipe : done , service : done
+  @Post()
+  @UseGuards(ChildrenAuthGuard)
   createChild(
     @Query('admin_id') admin_id: string,
-    @Body() childData: CreateChildDto,
+    @Body(ValidateChildCreationPipe) childData: CreateChildDto,
   ) {
-    return this.childrenService.createChild(admin_id, childData);
+    return this.childrenService.createChild(childData);
   }
-  @Get('statistics') // Get /children/statistics to retrieve children statistics
+
+  // guards : done , service : done
+  @Get('statistics')
+  @UseGuards(ChildrenAuthGuard)
   getChildrenStatistics(@Query('admin_id') admin_id: string) {
-    return this.childrenService.getChildrenStatistics(admin_id);
+    return this.childrenService.getChildrenStatistics();
   }
 
+  // guards : done , service : done
   @Get('allergies')
-  getAllergies(@Query('admin_id') admin_id: string,@Query('category') category: Category) {
-    return this.childrenService.getAllergies(admin_id, category);
+  @UseGuards(ChildrenAuthGuard)
+  getAllergies(
+    @Query('admin_id') admin_id: string,
+    @Query('category') category: Category,
+  ) {
+    return this.childrenService.getAllergies(category);
   }
 
-  @Get('search') // Get /children/search?name= to search children by name
-  searchChildren(@Query('name') name: string) {
+  // guards : done , service : done
+  @Get('search')
+  @UseGuards(ChildrenAuthGuard)
+  searchChildren(
+    @Query('admin_id') admin_id: string,
+    @Query('name') name: string,
+  ) {
     return this.childrenService.searchChildren(name);
   }
-  @Get(':id') // Get /children/:id to retrieve a child by ID
-  getChildById(@Param('id') id: number) {
+
+  // guards : done , service : done
+  @Get(':id')
+  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
+  getChildById(@Query('admin_id') admin_id: string, @Param('id') id: number) {
     return this.childrenService.getChildById(id);
   }
 
-  @Get(':id/medical-info') // Get /children/:id/medical-info to retrieve medical info by child ID
-  getMedicalInfoByChildId(@Param('id') id: number) {
+   // guards : done , pipe : done , service : done
+  @Put(':id')
+  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
+  updateChildType(
+    @Query('admin_id') admin_id: string,
+    @Param('id') id: number,
+    @Body(ValidateChildUpdatePipe) body: any,
+  ) {
+    return this.childrenService.updateChildByType(Number(id), body);
+  }
+
+  // guards : done , service : done
+  @Get(':id/medical-info')
+  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
+  getMedicalInfoByChildId(
+    @Query('admin_id') admin_id: string,
+    @Param('id') id: number,
+  ) {
     return this.childrenService.getMedicalInfoByChildId(Number(id));
   }
 
-  @Put(':id/:type') // Put /children/:id/type to update a child's type by ID
-  updateChildType(@Param('id') id: number, @Param('type') type: string,@Body() body: any) {
-    return this.childrenService.updateChildByType(Number(id), type, body);
-  }
-
-  @Get('by-parent/:parentId') // Get /children/by-parent/:parentId to retrieve children by parent ID
-  getChildrenByParentId(@Param('parentId') parentId: number) {
-    return this.childrenService.getChildrenByParentId(Number(parentId));
-  }
 }

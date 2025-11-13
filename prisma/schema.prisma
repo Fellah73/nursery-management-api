@@ -81,7 +81,7 @@ model Children {
 model Classroom {
   id       Int      @id @default(autoincrement())
   name     String   @db.VarChar(100)
-  category Category 
+  category Category
   ageMin   Int
   ageMax   Int
   capacity Int?
@@ -281,15 +281,14 @@ model NurserySettings {
   openingTime String @db.VarChar(5)
 
   // Configuration des créneaux d'attendance
-  slotDuration  Int     @default(60)
-  slotInterval  Int     @default(15)
-  slotsPerDay   Int     @default(4)
+  slotDuration Int @default(60)
+  slotInterval Int @default(15)
+  slotsPerDay  Int @default(4)
 
   // Horaires des repas
   breakfastTime String? @db.VarChar(5)
   lunchTime     String? @db.VarChar(5)
   snackTime     String? @db.VarChar(5)
-
 
   // Durée des repas et siestes
   breakfastDuration Int @default(30) // minutes
