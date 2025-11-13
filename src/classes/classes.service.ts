@@ -1,4 +1,4 @@
-import { Injectable, Query } from '@nestjs/common';
+import { Body, Injectable, Param, Query } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   ClassesDtoGet,
@@ -10,24 +10,18 @@ import {
 export class ClassesService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  private readonly rangeByCategory = {
+    BEBE: '1-2',
+    PETIT: '3-4',
+    MOYEN: '4-5',
+    GRAND: '5-6',
+  };
+
+  // service : done
   async getAllClasses(@Query() query: ClassesDtoGet) {
     try {
-      const admin_id = query.admin_id ? Number(query.admin_id) : 0;
       const perPage = query.perPage ? Number(query.perPage) : 10;
       const page = query.page && query.page > 0 ? Number(query.page) : 1;
-
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: admin_id },
-      });
-
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
 
       const skip = (page - 1) * perPage;
 
@@ -87,47 +81,33 @@ export class ClassesService {
     }
   }
 
-  async createClass(admin_id: string, classData: CreateClassDto) {
+  // service : done
+  async createClass(@Body() classData: CreateClassDto) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
-
-      const existingTeacherInClasses =
-        await this.prismaService.classroom.findFirst({
+      const teacherAssignedClass = await this.prismaService.classroom.findFirst(
+        {
           where: { teacherId: Number(classData.teacherId) },
-        });
+        },
+      );
 
-      if (existingTeacherInClasses) {
+      if (teacherAssignedClass) {
         return {
-          success: false,
-          message: 'Teacher is already assigned to another class',
-          error: 'A teacher can only be assigned to one class at a time',
+          message: 'This teacher is already assigned to another class',
           statusCode: 400,
+          success: false,
         };
       }
-
-      const rangeByCategory = {
-        BEBE: '3-18',
-        PETIT: '1-2',
-        MOYEN: '3-4',
-        GRAND: '5-6',
-      };
 
       const newClass = await this.prismaService.classroom.create({
         data: {
           name: classData.name,
           category: classData.category,
-          ageMin: Number(rangeByCategory[classData.category].split('-')[0]),
-          ageMax: Number(rangeByCategory[classData.category].split('-')[1]),
+          ageMin: Number(
+            this.rangeByCategory[classData.category].split('-')[0],
+          ),
+          ageMax: Number(
+            this.rangeByCategory[classData.category].split('-')[1],
+          ),
           capacity: Number(classData.capacity),
           teacherId: Number(classData.teacherId),
         },
@@ -149,22 +129,86 @@ export class ClassesService {
     }
   }
 
-  async getClassById(id: number, admin_id: string) {
+  // service : done
+  async searchClasses(@Query('name') name: string) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
+      // Validation de base
+      if (!name || name.trim() === '') {
         return {
+          message: 'Search term is required',
+          statusCode: 400,
           success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
         };
       }
+
+      const searchTerm = name.trim();
+      const classRooms = await this.prismaService.classroom.findMany({
+        where: {
+          OR: [{ name: { contains: searchTerm, mode: 'insensitive' } }],
+        },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          ageMin: true,
+          ageMax: true,
+          capacity: true,
+          teacherId: true,
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              familyName: true,
+              email: true,
+              profile_picture: true,
+            },
+          },
+          _count: {
+            select: {
+              assignments: true,
+            },
+          },
+        },
+      });
+
+      if (classRooms.length === 0) {
+        return {
+          message: 'No classes found matching the search term',
+          statusCode: 404,
+          success: false,
+        };
+      }
+      return {
+        message: 'Children retrieved successfully',
+        classRooms: classRooms,
+        length: classRooms.length,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      console.error('Search error:', error);
+      return {
+        message: 'An error occurred while searching for classes',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async getClassById(@Param('id') id: number) {
+    try {
       const classroom = await this.prismaService.classroom.findUnique({
         where: { id: Number(id) },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          ageMin: true,
+          ageMax: true,
+          capacity: true,
+          teacherId: true,
           teacher: {
             select: {
               id: true,
@@ -205,19 +249,9 @@ export class ClassesService {
     }
   }
 
-  async updateClass(admin_id: string, classData: ClassUpdateDto, id: number) {
+  // service : done
+  async updateClass(@Body() classData: ClassUpdateDto, @Param('id') id: number) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
       const existingClass = await this.prismaService.classroom.findUnique({
         where: { id: Number(id) },
         include: {
@@ -228,6 +262,7 @@ export class ClassesService {
           },
         },
       });
+
       if (!existingClass) {
         return {
           message: 'Class not found',
@@ -236,6 +271,7 @@ export class ClassesService {
         };
       }
 
+      // category exception
       if (
         classData.category !== existingClass.category &&
         existingClass._count.assignments > 0
@@ -247,6 +283,7 @@ export class ClassesService {
         };
       }
 
+      // capacity exception
       if (
         classData.capacity &&
         classData.capacity < existingClass._count.assignments
@@ -259,6 +296,25 @@ export class ClassesService {
         };
       }
 
+      // teacher exception
+      if (
+        classData.teacherId &&
+        classData.teacherId !== existingClass.teacherId
+      ) {
+        const teacherAssignedClass =
+          await this.prismaService.classroom.findFirst({
+            where: { teacherId: Number(classData.teacherId) },
+          });
+
+        if (teacherAssignedClass) {
+          return {
+            message: 'This teacher is already assigned to another class',
+            statusCode: 400,
+            success: false,
+          };
+        }
+      }
+
       const updatedClass = await this.prismaService.classroom.update({
         where: { id: Number(id) },
         data: {
@@ -268,6 +324,7 @@ export class ClassesService {
           teacherId: Number(classData.teacherId) || existingClass.teacherId,
         },
       });
+
       if (!updatedClass) {
         return {
           message: 'Class not found or update failed',
@@ -275,6 +332,7 @@ export class ClassesService {
           statusCode: 404,
         };
       }
+
       return {
         message: 'Class updated successfully',
         class: updatedClass,
@@ -291,96 +349,12 @@ export class ClassesService {
     }
   }
 
-  async deleteClass(admin_id: string, id: number) {
+  // service : done
+  async deleteClass(@Param('id') id: number) {
     try {
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: Number(admin_id) },
-      });
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
       const existingClass = await this.prismaService.classroom.findUnique({
         where: { id: Number(id) },
         include: {
-          _count: {
-            select: {
-              assignments: true, // Count the number of children assigned to this classroom
-            },
-          },
-        },
-      });
-      if (!existingClass) {
-        return {
-          message: 'Class not found',
-          success: false,
-          statusCode: 404,
-        };
-      }
-      if (existingClass._count.assignments > 0) {
-        return {
-          message: 'Cannot delete a class with assigned children',
-          success: false,
-          statusCode: 400,
-        };
-      }
-
-      const deletedClassRoom = await this.prismaService.classroom.delete({
-        where: { id: Number(id) },
-      });
-
-      if (!deletedClassRoom) {
-        return {
-          message: 'Class not found or deletion failed',
-          success: false,
-          statusCode: 404,
-        };
-      }
-      return {
-        message: 'Class deleted successfully',
-        success: true,
-        statusCode: 200,
-      };
-    } catch (error) {
-      return {
-        message: 'Internal server error',
-        error: error.message,
-        statusCode: 500,
-        success: false,
-      };
-    }
-  }
-
-  async searchClasses(@Query('name') name: string) {
-    try {
-      // Validation de base
-      if (!name || name.trim() === '') {
-        return {
-          message: 'Search term is required',
-          statusCode: 400,
-          success: false,
-        };
-      }
-
-      const searchTerm = name.trim();
-      const classRooms = await this.prismaService.classroom.findMany({
-        where: {
-          OR: [{ name: { contains: searchTerm, mode: 'insensitive' } }],
-        },
-        include: {
-          teacher: {
-            select: {
-              id: true,
-              name: true,
-              familyName: true,
-              email: true,
-              profile_picture: true,
-            },
-          },
           _count: {
             select: {
               assignments: true,
@@ -389,24 +363,26 @@ export class ClassesService {
         },
       });
 
-      if (classRooms.length === 0) {
+      if (existingClass!._count.assignments > 0) {
         return {
-          message: 'No classes found matching the search term',
-          statusCode: 404,
+          message: 'Cannot delete a class with assigned children',
           success: false,
+          statusCode: 400,
         };
       }
+
+      await this.prismaService.classroom.delete({
+        where: { id: Number(id) },
+      });
+
       return {
-        message: 'Children retrieved successfully',
-        classRooms: classRooms,
-        length: classRooms.length,
+        message: 'Class deleted successfully',
         success: true,
         statusCode: 200,
       };
     } catch (error) {
-      console.error('Search error:', error);
       return {
-        message: 'An error occurred while searching for classes',
+        message: 'Internal server error',
         error: error.message,
         statusCode: 500,
         success: false,

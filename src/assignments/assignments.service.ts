@@ -1,4 +1,4 @@
-import { Body, Injectable } from '@nestjs/common';
+import { Body, Injectable, Param, Query } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateAssignmentsDto } from './dto/assignments-dto';
@@ -113,7 +113,7 @@ export class AssignmentsService {
   }
 
   // service : done
-  async updateAssignment(id: string, body: { classroomId: string }) {
+  async updateAssignment(@Param('id') id: string, @Body() body: { classroomId: string }) {
     try {
       const classRoom = await this.prismaService.classroom.findUnique({
         where: { id: Number(body.classroomId) },
@@ -189,7 +189,7 @@ export class AssignmentsService {
   }
 
   // service : done
-  async deleteAssignment(id: string) {
+  async deleteAssignment(@Param('id') id: string) {
     try {
       const assignment = await this.prismaService.assignment.delete({
         where: { id: Number(id) },
@@ -220,7 +220,7 @@ export class AssignmentsService {
   }
 
   // service : done
-  async getChildrenNotAssigned(category?: Category) {
+  async getChildrenNotAssigned(@Query('category') category?: Category) {
     try {
       // get the category age range
       const minAge = AssignmentsService.ageRangeByCategory[category!].min;
@@ -263,7 +263,7 @@ export class AssignmentsService {
   }
 
   // service : done
-  async getAvailableClasses(class_id?: string) {
+  async getAvailableClasses(@Query('class_id') class_id?: string) {
     try {
       let currentClassCategory: Category | undefined = undefined;
 
@@ -338,7 +338,7 @@ export class AssignmentsService {
   }
 
   // service : done
-  async getAssignmentsByClass(id: number) {
+  async getAssignmentsByClass(@Param('id') id: number) {
     try {
   
       const allAssignments = await this.prismaService.assignment.findMany({
