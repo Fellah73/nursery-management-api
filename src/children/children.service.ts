@@ -81,7 +81,6 @@ export class ChildrenService {
         data: {
           full_name: childData.full_name,
           birth_date: childData.birth_date,
-          age: age,
           profile_picture: childData.profile_picture || null,
           address: childData.address,
           city: childData.city,
@@ -94,7 +93,6 @@ export class ChildrenService {
             childData.secondary_emergency_contact_name || null,
           secondary_emergency_phone:
             childData.secondary_emergency_contact_phone || null,
-          class_group: 'fefe',
           blood_type: childData.blood_type,
           medical_info: childData.information || null,
           allergies: childData.allergies || null,
@@ -107,7 +105,6 @@ export class ChildrenService {
       delete (newChild as any).entry_date;
       delete (newChild as any).created_at;
       delete (newChild as any).parent_id;
-      delete (newChild as any).class_group;
 
       return {
         status: 'success',
@@ -138,21 +135,26 @@ export class ChildrenService {
 
       // By age group
       const children = await this.prismaService.children.findMany({
-        select: { age: true },
+        select: { birth_date: true },
       });
 
       const byAgeGroup = {
+        '< 2': 0,
         '2-3': 0,
         '4-5': 0,
         '6+': 0,
       };
 
       for (const child of children) {
-        if (child.age >= 2 && child.age <= 3) {
+        let age = this.calculateAge(child.birth_date);
+
+        if (age < 2) {
+          byAgeGroup['< 2']++;
+        } else if (age >= 2 && age <= 3) {
           byAgeGroup['2-3']++;
-        } else if (child.age >= 4 && child.age <= 5) {
+        } else if (age >= 4 && age <= 5) {
           byAgeGroup['4-5']++;
-        } else if (child.age >= 6) {
+        } else if (age >= 6) {
           byAgeGroup['6+']++;
         }
       }
@@ -304,7 +306,6 @@ export class ChildrenService {
 
       children.forEach((child) => {
         delete (child as any).entry_date;
-        delete (child as any).class_group;
       });
 
       return {
@@ -334,7 +335,6 @@ export class ChildrenService {
 
       delete (child as any).created_at;
       delete (child as any).parent_id;
-      delete (child as any).class_group;
 
       return {
         status: 'success',
@@ -447,7 +447,6 @@ export class ChildrenService {
 
       delete (updatedChild as any).created_at;
       delete (updatedChild as any).parent_id;
-      delete (updatedChild as any).class_group;
 
       return {
         status: 'success',

@@ -27,6 +27,7 @@ export class UserDtoUpdateStatus {
     admin_id: number;
     status: 'enable' | 'disable';
 }
+
 export class UserDtoCreate extends RegisterDto {
     admin_id: number;
 }

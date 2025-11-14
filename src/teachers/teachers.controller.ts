@@ -15,10 +15,12 @@ import { TeachersService } from './teachers.service';
 @Controller('teachers')
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}
+
   @Get() // GET users/ only admin can access this route
   getTeachers(@Query() query: TeacherDtoGet) {
     return this.teachersService.getTeachers(query);
   }
+
   @Post() // POST users/ to create a new user
   createTeacher(@Body() body: TeacherDtoCreate) {
     return this.teachersService.createTeacher(body);
@@ -47,5 +49,4 @@ export class TeachersController {
     return this.teachersService.getTeacherById(user_id);
   }
 
-  
 }

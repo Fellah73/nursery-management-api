@@ -7,12 +7,23 @@ import { CreateAssignmentsDto } from './dto/assignments-dto';
 export class AssignmentsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  private static ageRangeByCategory = {
+  private readonly ageRangeByCategory = {
     BEBE: { min: 1, max: 2 },
     PETIT: { min: 2, max: 3 },
     MOYEN: { min: 3, max: 4 },
     GRAND: { min: 4, max: 5 },
   };
+
+  private calculateAge(birthDateStr: string): number {
+    const birthDate = new Date(birthDateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
 
   // service : done
   async createAssignment(@Body() body: CreateAssignmentsDto) {
@@ -54,12 +65,17 @@ export class AssignmentsService {
         where: { id: Number(classroomId) },
       });
 
+      let age = this.calculateAge(child.birth_date);
+
       // check if child's age is appropriate for the classroom
-      if (child.age < classroom!.ageMin || child.age > classroom!.ageMax) {
+      if (
+        age < this.ageRangeByCategory[classroom!.category].min ||
+        age > this.ageRangeByCategory[classroom!.category].max
+      ) {
         return {
           success: false,
           message: 'Child age not appropriate for this classroom',
-          error: `Child age ${child.age} is not within the classroom age range of ${classroom!.ageMin} to ${classroom!.ageMax} (category: ${classroom!.category})`,
+          error: `Child age ${age} is not within the classroom age range of ${classroom!.ageMin} to ${classroom!.ageMax} (category: ${classroom!.category})`,
           statusCode: 400,
         };
       }
@@ -113,7 +129,10 @@ export class AssignmentsService {
   }
 
   // service : done
-  async updateAssignment(@Param('id') id: string, @Body() body: { classroomId: string }) {
+  async updateAssignment(
+    @Param('id') id: string,
+    @Body() body: { classroomId: string },
+  ) {
     try {
       const classRoom = await this.prismaService.classroom.findUnique({
         where: { id: Number(body.classroomId) },
@@ -124,15 +143,14 @@ export class AssignmentsService {
         include: { child: true },
       });
 
+      let age = this.calculateAge(assignmentExists!.child.birth_date);
+
       // check if child's age is appropriate for the classroom
-      if (
-        assignmentExists!.child.age < classRoom!.ageMin ||
-        assignmentExists!.child.age > classRoom!.ageMax
-      ) {
+      if (age < classRoom!.ageMin || age > classRoom!.ageMax) {
         return {
           success: false,
           message: 'Child age not appropriate for this classroom',
-          error: `Child age ${assignmentExists!.child.age} is not within the classroom age range of ${classRoom!.ageMin} to ${classRoom!.ageMax} (category: ${classRoom!.category})`,
+          error: `Child age ${age} is not within the classroom age range of ${classRoom!.ageMin} to ${classRoom!.ageMax} (category: ${classRoom!.category})`,
           statusCode: 400,
         };
       }
@@ -223,17 +241,13 @@ export class AssignmentsService {
   async getChildrenNotAssigned(@Query('category') category?: Category) {
     try {
       // get the category age range
-      const minAge = AssignmentsService.ageRangeByCategory[category!].min;
-      const maxAge = AssignmentsService.ageRangeByCategory[category!].max;
+      const minAge = this.ageRangeByCategory[category!].min;
+      const maxAge = this.ageRangeByCategory[category!].max;
 
       const children = await this.prismaService.children.findMany({
         where: {
           assignments: {
             none: {},
-          },
-          age: {
-            gte: minAge,
-            lte: maxAge,
           },
         },
         select: {
@@ -246,9 +260,14 @@ export class AssignmentsService {
         },
       });
 
+      const filteredChildren = children.filter((child) => {
+        const age = this.calculateAge(child.birth_date);
+        return (age >= minAge) && (age < maxAge);
+      });
+
       return {
         message: 'Children not assigned retrieved successfully',
-        children,
+        children: filteredChildren,
         success: true,
         statusCode: 200,
       };
@@ -340,7 +359,6 @@ export class AssignmentsService {
   // service : done
   async getAssignmentsByClass(@Param('id') id: number) {
     try {
-  
       const allAssignments = await this.prismaService.assignment.findMany({
         where: { classroomId: Number(id) },
         include: {

@@ -71,35 +71,6 @@ export class AttendanceService {
     });
   }
 
-  // privacy check for admin and super admin
-  async privacyCheck(userId: number) {
-    const user = await this.prismaService.user.findUnique({
-      where: { id: userId },
-    });
-    if (!user) {
-      return {
-        success: false,
-        message: 'Utilisateur non trouvé',
-        status: 404,
-      };
-    }
-
-    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
-      return {
-        success: false,
-        user: user,
-        status: 403,
-        message: "Vous n'avez pas les droits pour accéder à cette ressource",
-      };
-    }
-
-    return {
-      success: true,
-      user: user,
-      status: 200,
-    };
-  }
-
   // get all attendance records for staff
   // service : done
   async getStaffAttendanceRecords(admin_id: number) {
@@ -231,7 +202,6 @@ export class AttendanceService {
           child: {
             select: {
               full_name: true,
-              age: true,
             },
           },
         },
@@ -256,7 +226,6 @@ export class AttendanceService {
           child: {
             select: {
               full_name: true,
-              age: true,
             },
           },
         },
@@ -352,7 +321,6 @@ export class AttendanceService {
           child: {
             select: {
               full_name: true,
-              age: true,
             },
           },
         },

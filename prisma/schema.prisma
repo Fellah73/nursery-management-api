@@ -42,7 +42,6 @@ model Children {
   full_name       String  @db.VarChar
   birth_date      String  @db.VarChar
   gender          Gender
-  age             Int
   profile_picture String? @db.VarChar
   parent_id       Int
 
@@ -53,13 +52,12 @@ model Children {
   emergency_phone             String? @db.VarChar
   secondary_emergency_contact String? @db.VarChar
   secondary_emergency_phone   String? @db.VarChar
-  class_group                 String? @db.VarChar
 
   blood_type         String? @db.VarChar
   medical_info       String? @db.Text
   allergies          String? @db.Text
   special_needs      String? @db.Text
-  vaccination_status String? @db.VarChar
+  vaccination_status VaccinationStatus? 
 
   entry_date String? @db.VarChar
   notes      String? @db.Text
@@ -345,4 +343,10 @@ enum DayOfWeek {
   TUESDAY
   WEDNESDAY
   THURSDAY
+}
+
+enum VaccinationStatus{
+  COMPLETE
+  INCOMPLETE
+  UNKNOWN
 }

@@ -7,6 +7,8 @@ import { TeacherDtoCreate, TeacherDtoGet } from './dto/teachers-dto';
 @Injectable()
 export class TeachersService {
   constructor(private readonly prismaService: PrismaService) {}
+
+  // service : failed
   async getTeachers(@Query() query: TeacherDtoGet) {
     try {
       const user_id = query.user_id ? Number(query.user_id) : 0;
@@ -67,7 +69,6 @@ export class TeachersService {
         ({ password, ...user }) => user,
       );
 
-      // Return the response
       return {
         message: 'Users retrieved successfully',
         teachers: teachersWithoutPassword,
@@ -91,6 +92,7 @@ export class TeachersService {
     }
   }
 
+  // service : failed
   async createTeacher(@Body() body: TeacherDtoCreate) {
     try {
       const user_id = Number(body.admin_id);
@@ -177,6 +179,7 @@ export class TeachersService {
     }
   }
 
+  // service : failed
   async getAvailableTeachers(admin_id: number) {
     try {
       if (!admin_id || isNaN(admin_id) || admin_id <= 0) {
@@ -235,6 +238,7 @@ export class TeachersService {
     }
   }
 
+  // service : failed
   async searchTeachers(
     @Query('search') search_query: string,
     @Query('only_admin') only_admin: boolean,
@@ -303,6 +307,7 @@ export class TeachersService {
     }
   }
 
+  // service : failed
   async getTeacherById(user_id: number) {
     try {
       // Conversion en nombre et vérification
@@ -344,4 +349,5 @@ export class TeachersService {
       };
     }
   }
+
 }

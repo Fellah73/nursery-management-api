@@ -384,6 +384,7 @@ export class UsersService {
       };
     }
   }
+
   async getUserStatistics(@Res() res) {
     try {
       const totalUsers = await this.prismaService.user.count();
@@ -709,4 +710,5 @@ export class UsersService {
       });
     }
   }
+  
 }

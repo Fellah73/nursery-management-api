@@ -26,6 +26,7 @@ export class UsersController {
   getUsers(@Query() query: UserDtoGet) {
     return this.usersService.getUsers(query);
   }
+
   @Post() // POST users/ to create a new user
   createUser(@Body() body: UserDtoCreate) {
     return this.usersService.createUser(body);
@@ -88,6 +89,7 @@ export class UsersController {
   ) {
     return this.usersService.updateUserStatus(Number(user_id), body);
   }
+
   @Patch(':id/grade') // PATCH users/:id/grade to update user grade
   updateUserGrade(
     @Param('id') user_id: number,
@@ -95,4 +97,5 @@ export class UsersController {
   ) {
     return this.usersService.updateUserGrade(Number(user_id), body);
   }
+  
 }
