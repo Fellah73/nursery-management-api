@@ -75,6 +75,7 @@ export class AuthService {
       };
     }
   }
+  
   async register(body: RegisterDto, @Res() res: Response) {
     try {
       const isExistingUser = await this.prismaService.user.findUnique({
@@ -130,6 +131,7 @@ export class AuthService {
       });
     }
   }
+
   logout(@Req() req: Request, @Res() res: Response) {
     try {
       const token = req.cookies?.authToken || null;
@@ -155,6 +157,7 @@ export class AuthService {
       });
     }
   }
+
   async getLoggingStatus(@Req() req: Request, @Res() res: Response) {
     try {
       const token = req.cookies?.authToken || null;
@@ -237,6 +240,7 @@ export class AuthService {
       });
     }
   }
+
   async verifySecretAnswer(
     @Query('email') email: string,
     @Query('answer') answer: string,
@@ -489,4 +493,5 @@ export class AuthService {
       });
     }
   }
+
 }

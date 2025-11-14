@@ -1,4 +1,6 @@
-import { Body, Injectable, Param, Query, Res } from '@nestjs/common';
+import { Body, Injectable, Param, Query } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import { env } from 'process';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   UserDtoCreate,
@@ -6,35 +8,18 @@ import {
   UserDtoUpdate,
   UserDtoUpdateProfile,
   UserDtoUpdateStatus,
+  UserGradeUpdateDto,
 } from './dto/users-dto';
-import { env } from 'process';
-import * as bcrypt from 'bcrypt';
-import { Response } from 'express';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  // service : done
   async getUsers(@Query() query: UserDtoGet) {
     try {
-      const user_id = query.user_id ? Number(query.user_id) : 0;
       const perPage = query.perPage ? Number(query.perPage) : 10;
       const page = query.page && query.page > 0 ? Number(query.page) : 1;
-
-      // check if user is an admin
-      const adminUser = await this.prismaService.user.findFirst({
-        where: { id: user_id },
-      });
-
-      // Check if the user exists and is an admin
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          success: false,
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-        };
-      }
 
       const skip = (page - 1) * perPage;
 
@@ -48,10 +33,10 @@ export class UsersService {
 
       const users = await this.prismaService.user.findMany({
         take: perPage && perPage !== 0 ? perPage : undefined,
-        skip: perPage !== 0 ? skip : undefined, // Only skip if we're using pagination
+        skip: perPage !== 0 ? skip : undefined,
         where: {
           id: {
-            not: user_id,
+            not: Number(query.admin_id),
           },
           ...roleFilter,
         },
@@ -61,19 +46,21 @@ export class UsersService {
       const totalUsers = await this.prismaService.user.count({
         where: {
           id: {
-            not: user_id,
+            not: Number(query.admin_id),
           },
           ...roleFilter,
         },
       });
 
-      const usersWithoutPassword = users.map(({ password, ...user }) => user);
+      const formatedUsers = users.map(
+        ({ password, created_at, updated_at, speciality, ...user }) => user,
+      );
 
       // Return the response
       return {
         message: 'Users retrieved successfully',
-        users: usersWithoutPassword,
-        length: usersWithoutPassword.length,
+        users: formatedUsers,
+        length: formatedUsers.length,
         pagination: {
           total: totalUsers,
           page: page,
@@ -84,7 +71,6 @@ export class UsersService {
         statusCode: 200,
       };
     } catch (error) {
-      // Handle errors
       return {
         message: 'An error occurred while retrieving users',
         error: error.message,
@@ -94,266 +80,33 @@ export class UsersService {
     }
   }
 
-  async getUsersById(user_id: number) {
+  // service : done
+  async createUser(
+    @Query('admin_id') admin_id: number,
+    @Body() body: UserDtoCreate,
+  ) {
     try {
-      // Conversion en nombre et vérification
-      const id = Number(user_id);
-
-      if (isNaN(id) || id <= 0) {
-        return {
-          message: 'Invalid user ID',
-          statusCode: 400,
-          success: false,
-        };
-      }
-
-      const user = await this.prismaService.user.findUnique({
-        where: { id }, // Syntaxe simplifiée et correcte
-      });
-
-      if (!user) {
-        return {
-          message: 'User not found',
-          statusCode: 404,
-          success: false,
-        };
-      }
-
-      const { password, ...userWithoutPassword } = user;
-      return {
-        message: 'User retrieved successfully',
-        data: userWithoutPassword,
-        success: true,
-        statusCode: 200,
-      };
-    } catch (error) {
-      return {
-        message: 'An error occurred while retrieving the user',
-        error: error.message,
-        statusCode: 500,
-        success: false,
-      };
-    }
-  }
-
-  async updateUser(user_id: number, body: UserDtoUpdate, @Res() res: Response) {
-    try {
-      // Validate admin_id
-      if (!body.admin_id) {
-        return res.status(400).json({
-          message: 'Admin ID is required',
-          statusCode: 400,
-          success: false,
-        });
-      }
-      const adminId = Number(body.admin_id);
-
-      // Check if the admin exists and is an admin
       const adminUser = await this.prismaService.user.findUnique({
-        where: { id: adminId },
+        where: { id: Number(admin_id) },
       });
 
-      // authenticate admin user
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({
-          message: 'Unauthorized access to this route',
-          statusCode: 403,
-          success: false,
-        });
-      }
-
-      // Validate input
-      if (!body.admin_id) {
-        return res.status(400).json({
-          message: 'Admin ID is required',
-          statusCode: 400,
-          success: false,
-        });
-      }
-
-      // Check if user exists
-      const user = await this.prismaService.user.findUnique({
-        where: { id: user_id },
-      });
-
-      if (!user) {
-        return res.status(404).json({
-          message: 'User not found',
-          statusCode: 404,
-          success: false,
-        });
-      }
-
-      // Check if email already exists (only if email is being updated)
-      if (body.email) {
-        const existingUser = await this.prismaService.user.findUnique({
-          where: { email: body.email },
-        });
-
-        // if email already exists
-        if (existingUser) {
-          return res.status(409).json({
-            message: 'Email already in use',
-            statusCode: 409,
-            success: false,
-          });
-        }
-      }
-
-      const currentUser = await this.prismaService.user.findUnique({
-        where: { id: user_id },
-      });
-
-      if (!currentUser) {
-        return res.status(404).json({
-          message: 'User not found',
-          statusCode: 404,
-          success: false,
-        });
-      }
-
-      // Update user in the database
-      const updatedUser = await this.prismaService.user.update({
-        where: { id: user_id },
-        data: {
-          email: body.email || currentUser?.email!,
-          phone: Number(body.phone) || currentUser?.phone,
-          address: body.address || currentUser?.address,
-          profile_picture: body.profile_picture || currentUser?.profile_picture,
-        },
-      });
-
-      if (!updatedUser) {
-        return res.status(500).json({
-          message: 'An error occurred while updating the user 1',
-          statusCode: 500,
-          success: false,
-        });
-      }
-
-      return res.status(200).json({
-        message: 'User updated successfully',
-        success: true,
-        statusCode: 200,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: error.message || 'An error occurred while updating the user',
-        statusCode: 500,
-        success: false,
-      });
-    }
-  }
-
-  async updateUserStatus(user_id: number, body: UserDtoUpdateStatus) {
-    try {
-      const adminId = Number(body.admin_id);
-
-      // Check if the admin exists and is an admin
-      const adminUser = await this.prismaService.user.findUnique({
-        where: { id: adminId },
-      });
-
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-          success: false,
-        };
-      }
-      const userToUpdate = await this.prismaService.user.findUnique({
-        where: { id: user_id },
-      });
-
-      if (!userToUpdate) {
-        return {
-          message: 'User not found',
-          statusCode: 404,
-          success: false,
-        };
-      }
-
-      await this.prismaService.user.update({
-        where: { id: user_id },
-        data: { isActive: body.status === 'enable' },
-      });
-
-      return {
-        message: `User status updated to ${body.status}`,
-        success: true,
-        statusCode: 200,
-      };
-    } catch (error) {
-      return {
-        message: 'An error occurred while updating user status',
-        error: error.message,
-        statusCode: 500,
-        success: false,
-      };
-    }
-  }
-
-  async createUser(@Body() body: UserDtoCreate) {
-    try {
-      const user_id = Number(body.admin_id);
-
-      // Check if the user is an admin
-      const adminUser = await this.prismaService.user.findUnique({
-        where: { id: user_id },
-      });
-
+      // creation authorization
       if (
-        !adminUser ||
-        (adminUser.role !== 'ADMIN' && adminUser.role !== 'SUPER_ADMIN')
-      ) {
-        return {
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-          success: false,
-        };
-      }
-
-      // Validate input
-      if (!body.email || !body.password) {
-        return {
-          message: 'Email and password are required',
-          statusCode: 400,
-          success: false,
-        };
-      }
-
-      // Check if email already exists
-      const existingUser = await this.prismaService.user.findUnique({
-        where: { email: body.email },
-      });
-
-      if (existingUser) {
-        return {
-          message: 'Email already in use',
-          statusCode: 409,
-          success: false,
-        };
-      }
-
-      if (
-        adminUser.role === 'ADMIN' &&
-        body.role &&
+        adminUser!.role === 'ADMIN' &&
         body.role !== 'PARENT' &&
         body.role !== 'TEACHER'
       ) {
         return {
-          message: 'ADMIN can only create PARENT or TEACHER users',
+          message:
+            'ADMIN can only create PARENT or TEACHER users , admins are created by SUPER_ADMIN only',
           statusCode: 403,
           success: false,
         };
       }
-      // Hash the password
+
       const saltRounds = parseInt(env.BCRYPT_SALT_ROUNDS as string, 10) || 5;
       const hashedPassword = await bcrypt.hash(body.password, saltRounds);
 
-      // Create new user
       const newUser = await this.prismaService.user.create({
         data: {
           name: body.name,
@@ -361,18 +114,19 @@ export class UsersService {
           email: body.email,
           password: hashedPassword,
           phone: Number(body.phone) || undefined,
-          role: body.role || 'PARENT',
+          role: body.role,
           address: body.address || undefined,
           profile_picture: body.profile_picture || undefined,
+          gender: body.gender,
         },
       });
 
-      // Exclude password from the response
-      const { password, ...userWithoutPassword } = newUser;
+      const { password, created_at, updated_at, speciality, ...formatedUser } =
+        newUser;
 
       return {
         message: 'User created successfully',
-        data: userWithoutPassword,
+        data: formatedUser,
         success: true,
         statusCode: 201,
       };
@@ -385,15 +139,16 @@ export class UsersService {
     }
   }
 
-  async getUserStatistics(@Res() res) {
+  // service : done
+  async getUserStatistics() {
     try {
       const totalUsers = await this.prismaService.user.count();
       if (totalUsers === 0) {
-        return res.status(404).json({
+        return {
           message: 'No users found',
           success: false,
           statusCode: 404,
-        });
+        };
       }
 
       const parents = await this.prismaService.user.count({
@@ -409,7 +164,7 @@ export class UsersService {
         where: { role: 'SUPER_ADMIN' },
       });
 
-      return res.status(200).json({
+      return {
         message: 'User statistics retrieved successfully',
         users: {
           totalUsers: totalUsers,
@@ -422,38 +177,25 @@ export class UsersService {
         },
         success: true,
         statusCode: 200,
-      });
+      };
     } catch (error) {
       console.error('Error retrieving user statistics:', error);
-      return res.status(500).json({
+      return {
         message: 'An error occurred while retrieving user statistics',
         error: error.message,
         statusCode: 500,
         success: false,
-      });
+      };
     }
   }
 
+  // service : done
   async searchUsers(
     @Query('search') search_query: string,
-    only_admin: boolean,
-    user_id: number,
+    @Query('only_admin') only_admin: boolean,
+    @Query('admin_id') admin_id: number,
   ) {
     try {
-      const adminUser = await this.prismaService.user.findUnique({
-        where: { id: Number(user_id) },
-      });
-
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return {
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-          success: false,
-        };
-      }
-
-      // Validation de base
       if (!search_query || search_query.trim() === '') {
         return {
           message: 'Search term is required',
@@ -472,25 +214,25 @@ export class UsersService {
             { email: { contains: searchTerm, mode: 'insensitive' } },
           ],
           id: {
-            not: Number(user_id),
+            not: Number(admin_id),
           },
         },
       });
 
       if (only_admin && only_admin === true) {
-        // Filter users to only include admins
         const adminUsers = users.filter(
           (user) => user.role === 'ADMIN' || user.role === 'SUPER_ADMIN',
         );
         users = adminUsers;
       }
 
-      // Exclude password from the response
-      const usersWithoutPassword = users.map(({ password, ...user }) => user);
+      const formatedUsers = users.map(
+        ({ password, created_at, updated_at, speciality, ...user }) => user,
+      );
 
       return {
         message: 'Users retrieved successfully',
-        users: usersWithoutPassword,
+        users: formatedUsers,
         success: true,
         statusCode: 200,
       };
@@ -505,130 +247,255 @@ export class UsersService {
     }
   }
 
-  async updateUserPassword(
-    @Param('id') user_id: number,
-    body: { admin_id: number; newPassword: string },
-    @Res() res: Response,
-  ) {
+  // service : done
+  async getUsersById(@Param('id') id: number) {
     try {
-      const adminId = Number(body.admin_id);
-
-      const adminUser = await this.prismaService.user.findUnique({
-        where: { id: Number(adminId) },
-      });
-
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
-        return res.status(403).json({
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
-          success: false,
-        });
-      }
-
-      if (!body.newPassword) {
-        return res.status(400).json({
-          message: 'New password is required',
-          statusCode: 400,
-          success: false,
-        });
-      }
-
       const user = await this.prismaService.user.findUnique({
-        where: { id: Number(user_id) },
+        where: { id: Number(id) },
       });
 
       if (!user) {
-        return res.status(404).json({
+        return {
           message: 'User not found',
           statusCode: 404,
           success: false,
-        });
+        };
       }
 
+      const { password, created_at, updated_at, speciality, ...formatedUser } =
+        user;
+      return {
+        message: 'User retrieved successfully',
+        data: formatedUser,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while retrieving the user',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async updateUser(@Param('id') id: number, @Body() body: UserDtoUpdate) {
+    try {
+      const currentUser = await this.prismaService.user.findUnique({
+        where: { id: Number(id) },
+      });
+
+      const updatedUser = await this.prismaService.user.update({
+        where: { id: Number(id) },
+        data: {
+          email: body.email || currentUser?.email!,
+          phone: Number(body.phone) || currentUser?.phone,
+          address: body.address || currentUser?.address,
+          profile_picture: body.profile_picture || currentUser?.profile_picture,
+        },
+      });
+
+      if (!updatedUser) {
+        return {
+          message: 'An error occurred while updating the user 1',
+          statusCode: 500,
+          success: false,
+        };
+      }
+
+      const { password, created_at, updated_at, speciality, ...formatedUser } =
+        updatedUser;
+
+      return {
+        message: 'User updated successfully',
+        data: formatedUser,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: error.message || 'An error occurred while updating the user',
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async updateUserProfile(
+    @Param('id') id: number,
+    @Body() body: UserDtoUpdateProfile,
+  ) {
+    try {
+      const user = await this.prismaService.user.findUnique({
+        where: { id: Number(id) },
+      });
+
+      const updatedUser = await this.prismaService.user.update({
+        where: { id: Number(id) },
+        data: {
+          email: body.email || user!.email,
+          phone: Number(body.phone) || user!.phone,
+          address: body.address || user!.address,
+          profile_picture: body.profile_picture || user!.profile_picture,
+          name: body.name || user!.name,
+          familyName: body.familyName || user!.familyName,
+        },
+      });
+
+      if (!updatedUser) {
+        return {
+          message: 'An error occurred while updating the user profile',
+          statusCode: 500,
+          success: false,
+        };
+      }
+
+      const {
+        password,
+        created_at,
+        updated_at,
+        speciality,
+        ...formatedUserProfile
+      } = updatedUser;
+
+      return {
+        message: 'User profile updated successfully',
+        updatedUser: formatedUserProfile,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while updating the user profile',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async updateUserPassword(
+    @Param('id') id: number,
+    @Body() body: { newPassword: string },
+  ) {
+    try {
       const saltRounds = parseInt(env.BCRYPT_SALT_ROUNDS as string, 10) || 5;
       const hashedPassword = await bcrypt.hash(body.newPassword, saltRounds);
 
       if (!hashedPassword) {
-        return res.status(500).json({
-          message: 'Error hashing password',
-          statusCode: 500,
-          success: false,
-        });
-      }
-
-      await this.prismaService.user.update({
-        where: { id: Number(user_id) },
-        data: { password: hashedPassword },
-      });
-
-      return res.status(200).json({
-        message: 'User password updated successfully',
-        success: true,
-        statusCode: 200,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: 'An error occurred while updating the user password',
-        error: error.message,
-        statusCode: 500,
-        success: false,
-      });
-    }
-  }
-
-  async updateUserGrade(
-    @Param('id') user_id: number,
-    body: { admin_id: number; grade: string },
-  ) {
-    try {
-      const adminId = Number(body.admin_id);
-
-      // Check if the admin exists and is an admin
-      const adminUser = await this.prismaService.user.findUnique({
-        where: { id: adminId },
-      });
-
-      if (!adminUser || adminUser.role !== 'SUPER_ADMIN') {
         return {
-          message: 'Unauthorized access to this route',
-          error: 'You must be an admin to access this route',
-          statusCode: 403,
+          message: 'Error in updating password process',
+          statusCode: 500,
           success: false,
         };
       }
 
-      // Validate input
-      if (!body.grade) {
+      const updatedUser = await this.prismaService.user.update({
+        where: { id: Number(id) },
+        data: { password: hashedPassword },
+      });
+
+      if (!updatedUser) {
         return {
-          message: 'Grade is required',
+          message: 'An error occurred while updating the user password',
+          statusCode: 500,
+          success: false,
+        };
+      }
+
+      return {
+        message: 'User password updated successfully',
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while updating the user password',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async updateUserStatus(@Param('id') id: number, @Body() body: UserDtoUpdateStatus) {
+    try {
+      const updatedUser = await this.prismaService.user.update({
+        where: { id: Number(id) },
+        data: { isActive: body.status === 'enable' },
+      });
+
+      if (!updatedUser) {
+        return {
+          message: 'An error occurred while updating user status',
+          statusCode: 500,
+          success: false,
+        };
+      }
+
+      return {
+        message: `User status updated to ${body.status}`,
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while updating user status',
+        error: error.message,
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async updateUserGrade(
+    @Param('id') id: number,
+    @Body() body: UserGradeUpdateDto,
+  ) {
+    try {
+      const userToUpdate = await this.prismaService.user.findUnique({
+        where: { id: Number(id) },
+      });
+
+      if (userToUpdate!.role === 'TEACHER' || userToUpdate!.role === 'PARENT') {
+        return {
+          message: 'Only ADMIN and SUPER_ADMIN roles can be updated',
           statusCode: 400,
           success: false,
         };
       }
 
-      // Check if user exists
-      const user = await this.prismaService.user.findUnique({
-        where: { id: user_id },
+      const updatedUser = await this.prismaService.user.update({
+        where: { id: Number(id) },
+        data: { role: body.grade === 'ADMIN' ? 'ADMIN' : 'SUPER_ADMIN' },
       });
 
-      if (!user) {
+      if (!updatedUser) {
         return {
-          message: 'User not found',
-          statusCode: 404,
+          message: 'An error occurred while updating the user grade',
+          statusCode: 500,
           success: false,
         };
       }
 
-      // Update user grade in the database
-      const updatedUser = await this.prismaService.user.update({
-        where: { id: user_id },
-        data: { role: body.grade === 'ADMIN' ? 'ADMIN' : 'SUPER_ADMIN' },
-      });
+      const {
+        password,
+        created_at,
+        updated_at,
+        speciality,
+        role,
+        ...formatedUser
+      } = updatedUser;
 
       return {
         message: 'User role updated successfully',
-        data: updatedUser,
+        data: formatedUser,
         success: true,
         statusCode: 200,
       };
@@ -641,74 +508,4 @@ export class UsersService {
       };
     }
   }
-
-  async updateUserProfile(
-    @Param('id') user_id: number,
-    @Body() body: UserDtoUpdateProfile,
-    @Res() res: Response,
-  ) {
-    try {
-      // Validate user_id
-      const id = Number(user_id);
-      if (isNaN(id) || id <= 0) {
-        return res.status(400).json({
-          message: 'Invalid user ID',
-          statusCode: 400,
-          success: false,
-        });
-      }
-
-      // Check if user exists
-      const user = await this.prismaService.user.findUnique({
-        where: { id },
-      });
-
-      if (!user) {
-        return res.status(404).json({
-          message: 'User not found',
-          statusCode: 404,
-          success: false,
-        });
-      }
-
-      // Update user profile in the database
-      const updatedUser = await this.prismaService.user.update({
-        where: { id },
-        data: {
-          email: body.email || user.email,
-          phone: Number(body.phone) || user.phone,
-          address: body.address || user.address,
-          profile_picture: body.profile_picture || user.profile_picture,
-          name: body.name || user.name,
-          familyName: body.familyName || user.familyName,
-        },
-      });
-
-      if (!updatedUser) {
-        return res.status(500).json({
-          message: 'An error occurred while updating the user profile',
-          statusCode: 500,
-          success: false,
-        });
-      }
-
-      // Exclude password from the response
-      const { password, ...userWithoutPassword } = updatedUser;
-
-      return res.status(200).json({
-        message: 'User profile updated successfully',
-        updatedUser: userWithoutPassword,
-        success: true,
-        statusCode: 200,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: 'An error occurred while updating the user profile',
-        error: error.message,
-        statusCode: 500,
-        success: false,
-      });
-    }
-  }
-  
 }

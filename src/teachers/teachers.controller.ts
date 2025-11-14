@@ -1,52 +1,65 @@
 import {
-    Body,
-    Controller,
-    Get,
-    Param,
-    Post,
-    Query
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import {
-    TeacherDtoCreate,
-    TeacherDtoGet
+  TeacherDtoCreate,
+  TeacherDtoGet
 } from './dto/teachers-dto';
+import { TeachersAuthGuard } from './guards/auth/auth.guard';
+import { TeachersGuard } from './guards/teacher/teacher.guard';
+import { ValidateTeacherCreationPipe } from './pipe/validate.teacher';
 import { TeachersService } from './teachers.service';
 
 @Controller('teachers')
 export class TeachersController {
   constructor(private readonly teachersService: TeachersService) {}
 
-  @Get() // GET users/ only admin can access this route
+  // guards : done , service : done
+  @Get()
+  @UseGuards(TeachersAuthGuard)
   getTeachers(@Query() query: TeacherDtoGet) {
     return this.teachersService.getTeachers(query);
   }
 
-  @Post() // POST users/ to create a new user
-  createTeacher(@Body() body: TeacherDtoCreate) {
+  // guards : done , pipe : done , service : done
+  @Post()
+  @UseGuards(TeachersAuthGuard)
+  createTeacher(
+    @Query('admin_id') admin_id: number,
+    @Body(ValidateTeacherCreationPipe) body: TeacherDtoCreate,
+  ) {
     return this.teachersService.createTeacher(body);
   }
 
-  @Get('available') // GET users/available to get all available teachers
+  // guards : done , service : done
+  @Get('available')
+  @UseGuards(TeachersAuthGuard)
   getAvailableTeachers(@Query('admin_id') admin_id: number) {
-    return this.teachersService.getAvailableTeachers(admin_id);
+    return this.teachersService.getAvailableTeachers();
   }
 
-  @Get('/search') // GET users/search?search_query= to search users by name or email
+  // guards : done , service : done
+  @Get('/search')
+  @UseGuards(TeachersAuthGuard)
   searchTeachers(
     @Query('search_query') search_query: string,
-    @Query('only_admin') only_admin: string,
-    @Query('user_id') user_id: number,
+    @Query('admin_id') admin_id: number,
   ) {
-    return this.teachersService.searchTeachers(
-      search_query,
-      only_admin === 'true',
-      user_id,
-    );
+    return this.teachersService.searchTeachers(search_query, admin_id);
   }
 
-  @Get(':id') // GET users/:id only admin  can access this route
-  getTeatcherById(@Param('id') user_id: number) {
-    return this.teachersService.getTeacherById(user_id);
+  // guards : done , service : done
+  @Get(':id')
+  @UseGuards(TeachersAuthGuard, TeachersGuard)
+  getTeacherById(
+    @Query('admin_id') admin_id: number,
+    @Param('id') id: number) {
+    return this.teachersService.getTeacherById(id);
   }
-
 }

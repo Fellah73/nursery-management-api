@@ -6,96 +6,126 @@ import {
   Patch,
   Post,
   Query,
-  Res,
+  UseGuards
 } from '@nestjs/common';
-import { Response } from 'express';
 import {
   UserDtoCreate,
   UserDtoGet,
   UserDtoUpdate,
   UserDtoUpdateProfile,
   UserDtoUpdateStatus,
+  UserGradeUpdateDto,
 } from './dto/users-dto';
+import { UserAuthGuard } from './guards/auth/auth.guards';
+import { UserGuard } from './guards/user/user.gurads';
+import {
+  ValidateUserCreationPipe,
+  ValidateUserUpdatePipe,
+} from './pipe/validate.user';
 import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Get() // GET users/ only admin can access this route
+  // guards : done , service : done
+  @Get()
+  @UseGuards(UserAuthGuard)
   getUsers(@Query() query: UserDtoGet) {
     return this.usersService.getUsers(query);
   }
 
-  @Post() // POST users/ to create a new user
-  createUser(@Body() body: UserDtoCreate) {
-    return this.usersService.createUser(body);
+  // guards : done , pipe : done , service : done
+  @Post()
+  @UseGuards(UserAuthGuard)
+  createUser(
+    @Query('admin_id') admin_id: number,
+    @Body(ValidateUserCreationPipe) body: UserDtoCreate,
+  ) {
+    return this.usersService.createUser(admin_id, body);
   }
 
-  @Get('/statistics') // GET users/statistics to get user statistics
-  getUserStatistics(@Res() res: Response) {
-    return this.usersService.getUserStatistics(res);
+  // guards : done , service : done
+  @Get('/statistics')
+  @UseGuards(UserAuthGuard)
+  getUserStatistics(@Query() admin_id: number) {
+    return this.usersService.getUserStatistics();
   }
 
-  @Get('/search') // GET users/search?search_query= to search users by name or email
+  // guards : done , service : done
+  @Get('/search')
+  @UseGuards(UserAuthGuard)
   searchUsers(
     @Query('search_query') search_query: string,
-    @Query('only_admin') only_admin: string,
-    @Query('user_id') user_id: number,
+    @Query('only_admin') only_admin: 'true' | 'false',
+    @Query('admin_id') admin_id: number,
   ) {
     return this.usersService.searchUsers(
       search_query,
       only_admin === 'true',
-      user_id,
+      admin_id,
     );
   }
 
-  @Get(':id') // GET users/:id only admin  can access this route
-  getUsersById(@Param('id') user_id: number) {
-    return this.usersService.getUsersById(user_id);
+  // guards : done , service : done
+  @Get(':id')
+  @UseGuards(UserAuthGuard, UserGuard)
+  getUsersById(@Query('admin_id') admin_id: number, @Param('id') id: number) {
+    return this.usersService.getUsersById(id);
   }
 
-  @Patch(':id') // PATCH users/:id to update user details
+  // guards : done , pipe : done , service : done
+  @Patch(':id')
+  @UseGuards(UserAuthGuard, UserGuard)
   updateUser(
-    @Param('id') user_id: number,
-    @Body() body: UserDtoUpdate,
-    @Res() res: Response,
+    @Query('admin_id') admin_id: number,
+    @Param('id') id: number,
+    @Body(ValidateUserUpdatePipe) body: UserDtoUpdate,
   ) {
-    return this.usersService.updateUser(Number(user_id), body, res);
+    return this.usersService.updateUser(Number(id), body);
   }
 
-  @Patch('profile/:id') // PATCH users/profile/:id to update user profile
+  // guards : done , pipe : done , service : done
+  @Patch('profile/:id')
+  @UseGuards(UserAuthGuard, UserGuard)
   updateUserProfile(
+    @Query('admin_id') admin_id: number,
     @Param('id') user_id: number,
-    @Body() body: UserDtoUpdateProfile,
-    @Res() res: Response,
+    @Body(ValidateUserUpdatePipe) body: UserDtoUpdateProfile,
   ) {
-    return this.usersService.updateUserProfile(Number(user_id), body, res);
+    return this.usersService.updateUserProfile(Number(user_id), body);
   }
 
-  @Patch(':id/password') // PATCH users/:id/password to update user password
+  // guards : done , service : done
+  @Patch(':id/password')
+  @UseGuards(UserAuthGuard, UserGuard)
   updateUserPassword(
+    @Query('admin_id') admin_id: number,
     @Param('id') user_id: number,
-    @Body() body: { admin_id: number; newPassword: string },
-    @Res() res: Response,
+    @Body() body: { newPassword: string },
   ) {
-    return this.usersService.updateUserPassword(Number(user_id), body, res);
+    return this.usersService.updateUserPassword(Number(user_id), body);
   }
 
-  @Patch(':id/status') // PATCH users/:id/status to enable or disable an account
+  // guards : done , service : done
+  @Patch(':id/status')
+  @UseGuards(UserAuthGuard, UserGuard)
   updateUserStatus(
-    @Param('id') user_id: number,
+    @Query('admin_id') admin_id: number,
+    @Param('id') id: number,
     @Body() body: UserDtoUpdateStatus,
   ) {
-    return this.usersService.updateUserStatus(Number(user_id), body);
+    return this.usersService.updateUserStatus(Number(id), body);
   }
 
-  @Patch(':id/grade') // PATCH users/:id/grade to update user grade
+  // guards : done , service : done
+  @Patch(':id/grade')
+  @UseGuards(UserAuthGuard, UserGuard)
   updateUserGrade(
-    @Param('id') user_id: number,
-    @Body() body: { admin_id: number; grade: string },
+    @Query('admin_id') admin_id: number,
+    @Param('id') id: number,
+    @Body() body: UserGradeUpdateDto,
   ) {
-    return this.usersService.updateUserGrade(Number(user_id), body);
+    return this.usersService.updateUserGrade(Number(id), body);
   }
-  
 }
