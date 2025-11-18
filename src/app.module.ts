@@ -11,9 +11,10 @@ import { ClassesModule } from './classes/classes.module';
 import { AssignmentsModule } from './assignments/assignments.module';
 import { SchedulesModule } from './schedules/schedules.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, UsersModule, ChildrenModule, MenuModule, TeachersModule, ClassesModule, AssignmentsModule, SchedulesModule, AttendanceModule],
+  imports: [AuthModule, PrismaModule, UsersModule, ChildrenModule, MenuModule, TeachersModule, ClassesModule, AssignmentsModule, SchedulesModule, AttendanceModule, EventsModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -33,6 +33,8 @@ model User {
   // Relation pour les enseignants (si le rôle est TEACHER)
   classroom     Classroom?
 
+  events Event[]
+
   @@map("users")
 }
 
@@ -52,11 +54,11 @@ model Children {
   secondary_emergency_contact String? @db.VarChar
   secondary_emergency_phone   String? @db.VarChar
 
-  blood_type         String? @db.VarChar
-  medical_info       String? @db.Text
-  allergies          String? @db.Text
-  special_needs      String? @db.Text
-  vaccination_status VaccinationStatus? 
+  blood_type         String?            @db.VarChar
+  medical_info       String?            @db.Text
+  allergies          String?            @db.Text
+  special_needs      String?            @db.Text
+  vaccination_status VaccinationStatus?
 
   entry_date String? @db.VarChar
   notes      String? @db.Text
@@ -71,6 +73,7 @@ model Children {
 
   // Relations pour les présences des enfants
   attendances Attendance[]
+  events      Event[]
 
   @@map("children")
 }
@@ -271,6 +274,44 @@ model Attendance {
   @@map("attendances")
 }
 
+model Event {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(200)
+  description String?   @db.Text
+  eventType   EventType
+  eventDate   DateTime
+  location    String?   @db.VarChar(100)
+
+  // en cas d'anniversaire d'un enfant
+  childId Int?
+  child   Children? @relation(fields: [childId], references: [id])
+
+  images EventMedia[]
+
+  createdBy Int
+  creator   User @relation(fields: [createdBy], references: [id])
+
+  isPublished Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("events")
+}
+
+model EventMedia {
+  id      Int   @id @default(autoincrement())
+  eventId Int
+  event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  mediaUrl     String @db.Text // img/video URL
+  displayOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@map("event_media")
+}
+
 model NurserySettings {
   id Int @id @default(autoincrement())
 
@@ -298,6 +339,8 @@ model NurserySettings {
 
   @@map("nursery_settings")
 }
+
+// Enums
 
 enum EntityType {
   STAFF
@@ -344,8 +387,16 @@ enum DayOfWeek {
   THURSDAY
 }
 
-enum VaccinationStatus{
+enum VaccinationStatus {
   COMPLETE
   INCOMPLETE
   UNKNOWN
+}
+
+enum EventType {
+  BIRTHDAY
+  FIELD_TRIP // Sortie
+  CELEBRATION // Fête/Célébration
+  PERFORMANCE // Spectacle
+  OTHER // Autre
 }
