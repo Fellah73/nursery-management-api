@@ -23,8 +23,12 @@ export class TeacherDtoUpdate {
   @IsEmail()
   email?: string;
 
-  @IsOptional()
-  password?: string;
+  @IsString()
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/, {
+    message:
+      'Le mot de passe doit contenir au moins 8 caractères, dont au moins une majuscule, une minuscule et un chiffre',
+  })
+  password: string;
 
   @IsOptional()
   @Matches(/^(5|6|7)[0-9]{8}$/, {

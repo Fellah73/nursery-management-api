@@ -2,14 +2,16 @@ import { Body, Injectable, Param, Query } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { env } from 'process';
 import { PrismaService } from 'src/prisma/prisma.service';
-import {
-  TeacherDtoCreate,
-  TeacherDtoGet
-} from './dto/teachers-dto';
+import { TeacherDtoCreate, TeacherDtoGet } from './dto/teachers-dto';
 
 @Injectable()
 export class TeachersService {
   constructor(private readonly prismaService: PrismaService) {}
+
+  private formateResponse(teacher: any) {
+    const { password, created_at, updated_at, ...formatedTeacher } = teacher;
+    return formatedTeacher;
+  }
 
   // service : done
   async getTeachers(@Query() query: TeacherDtoGet) {
@@ -53,7 +55,7 @@ export class TeachersService {
       });
 
       const formattedTeachers = users.map(
-        ({ password, created_at, updated_at, speciality, ...user }) => user,
+        this.formateResponse.bind(this)
       );
 
       return {
@@ -101,13 +103,7 @@ export class TeachersService {
       });
 
       // formatted teacher response
-      const {
-        password,
-        created_at,
-        updated_at,
-        speciality,
-        ...formattedTeacher
-      } = newTeacher;
+      const formattedTeacher = this.formateResponse(newTeacher);
 
       return {
         message: 'teacher created successfully',
@@ -145,7 +141,7 @@ export class TeachersService {
       }
 
       const formatedTeachers = availableTeachers.map(
-        ({ password, created_at, updated_at, speciality, ...user }) => user,
+        this.formateResponse.bind(this)
       );
 
       return {
@@ -197,7 +193,7 @@ export class TeachersService {
       });
 
       const formatedTeachers = teachers.map(
-        ({ password, created_at, updated_at, speciality, ...user }) => user,
+        this.formateResponse.bind(this)
       );
 
       return {
@@ -232,13 +228,7 @@ export class TeachersService {
         };
       }
 
-      const {
-        password,
-        created_at,
-        updated_at,
-        speciality,
-        ...formatedTeacher
-      } = teacher;
+      const formatedTeacher = this.formateResponse(teacher);
 
       return {
         message: 'Teacher retrieved successfully',

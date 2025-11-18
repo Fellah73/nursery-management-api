@@ -22,7 +22,6 @@ model User {
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
   isActive        Boolean   @default(true)
-  speciality      String?   @db.VarChar
 
   // Relations
   children      Children[]

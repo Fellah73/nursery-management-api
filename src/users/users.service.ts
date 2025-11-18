@@ -15,6 +15,11 @@ import {
 export class UsersService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  private formateResponse(teacher: any) {
+    const { password, created_at, updated_at, ...formatedTeacher } = teacher;
+    return formatedTeacher;
+  }
+
   // service : done
   async getUsers(@Query() query: UserDtoGet) {
     try {
@@ -52,9 +57,7 @@ export class UsersService {
         },
       });
 
-      const formatedUsers = users.map(
-        ({ password, created_at, updated_at, speciality, ...user }) => user,
-      );
+      const formatedUsers = users.map(this.formateResponse.bind(this));
 
       // Return the response
       return {
@@ -121,8 +124,7 @@ export class UsersService {
         },
       });
 
-      const { password, created_at, updated_at, speciality, ...formatedUser } =
-        newUser;
+      const formatedUser = this.formateResponse(newUser);
 
       return {
         message: 'User created successfully',
@@ -226,9 +228,7 @@ export class UsersService {
         users = adminUsers;
       }
 
-      const formatedUsers = users.map(
-        ({ password, created_at, updated_at, speciality, ...user }) => user,
-      );
+      const formatedUsers = users.map(this.formateResponse.bind(this));
 
       return {
         message: 'Users retrieved successfully',
@@ -262,8 +262,7 @@ export class UsersService {
         };
       }
 
-      const { password, created_at, updated_at, speciality, ...formatedUser } =
-        user;
+      const formatedUser = this.formateResponse(user);
       return {
         message: 'User retrieved successfully',
         data: formatedUser,
@@ -305,8 +304,7 @@ export class UsersService {
         };
       }
 
-      const { password, created_at, updated_at, speciality, ...formatedUser } =
-        updatedUser;
+      const formatedUser = this.formateResponse(updatedUser);
 
       return {
         message: 'User updated successfully',
@@ -353,13 +351,7 @@ export class UsersService {
         };
       }
 
-      const {
-        password,
-        created_at,
-        updated_at,
-        speciality,
-        ...formatedUserProfile
-      } = updatedUser;
+      const formatedUserProfile = this.formateResponse(updatedUser);
 
       return {
         message: 'User profile updated successfully',
@@ -380,7 +372,7 @@ export class UsersService {
   // service : done
   async updateUserPassword(
     @Param('id') id: number,
-    @Body() body: { newPassword: string },
+    @Body() body: { newPassword: UserDtoCreate['password'] },
   ) {
     try {
       const saltRounds = parseInt(env.BCRYPT_SALT_ROUNDS as string, 10) || 5;
@@ -423,7 +415,10 @@ export class UsersService {
   }
 
   // service : done
-  async updateUserStatus(@Param('id') id: number, @Body() body: UserDtoUpdateStatus) {
+  async updateUserStatus(
+    @Param('id') id: number,
+    @Body() body: UserDtoUpdateStatus,
+  ) {
     try {
       const updatedUser = await this.prismaService.user.update({
         where: { id: Number(id) },
@@ -484,14 +479,7 @@ export class UsersService {
         };
       }
 
-      const {
-        password,
-        created_at,
-        updated_at,
-        speciality,
-        role,
-        ...formatedUser
-      } = updatedUser;
+      const formatedUser = this.formateResponse(updatedUser);
 
       return {
         message: 'User role updated successfully',

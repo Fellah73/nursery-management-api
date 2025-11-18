@@ -110,6 +110,10 @@ export class UserDtoCreate {
   email: string;
 
   @IsString()
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/, {
+    message:
+      'Le mot de passe doit contenir au moins 8 caractères, dont au moins une majuscule, une minuscule et un chiffre',
+  })
   password: string;
 
   @IsOptional()
@@ -138,3 +142,5 @@ export class UserDtoCreate {
   @IsString()
   profile_picture?: string;
 }
+
+

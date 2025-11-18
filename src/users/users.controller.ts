@@ -6,7 +6,7 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards
+  UseGuards,
 } from '@nestjs/common';
 import {
   UserDtoCreate,
@@ -102,7 +102,7 @@ export class UsersController {
   updateUserPassword(
     @Query('admin_id') admin_id: number,
     @Param('id') user_id: number,
-    @Body() body: { newPassword: string },
+    @Body() body: { newPassword: UserDtoCreate['password'] },
   ) {
     return this.usersService.updateUserPassword(Number(user_id), body);
   }
