@@ -1,10 +1,11 @@
 import {
-    IsArray,
-    IsEnum,
-    IsNumberString,
-    IsOptional,
-    IsString,
-    Matches
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsNumberString,
+  IsOptional,
+  IsString,
+  Matches,
 } from 'class-validator';
 import { EventType } from 'generated/prisma';
 
@@ -86,11 +87,17 @@ export class UpdateEventDto {
 }
 
 export class HandleEventMediaDto {
-    @IsArray()
-    @IsString({ each: true })
-    @Matches(/^(https?:\/\/[^\s]+)$/, {
-        each: true,
-        message: 'Each media URL must be a valid URL',
-    })
-    media: string[];
+  @IsArray()
+  @IsString({ each: true })
+  @Matches(/^(https?:\/\/[^\s]+)$/, {
+    each: true,
+    message: 'Each media URL must be a valid URL',
+  })
+  media: string[];
+}
+
+export class ReorderEventMediaDto {
+  @IsArray()
+  @IsNumber({}, { each: true })
+  reorderIndexes: number[];
 }

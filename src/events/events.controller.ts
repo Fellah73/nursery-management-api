@@ -16,10 +16,13 @@ import {
   CreateEventDto,
   GetEventsDto,
   HandleEventMediaDto,
+  ReorderEventMediaDto,
   UpdateEventDto,
 } from './dto/events-dto';
 import { EventsGuard } from './guards/event.guard';
 import { ValidateEventMediaPipeCreation } from './pipe/validate-event-media';
+import { Validate } from 'class-validator';
+import { ValidateEventMediaReorderPipe } from './pipe/validate-reorder-evetns-media';
 
 @Controller('events')
 export class EventsController {
@@ -67,7 +70,7 @@ export class EventsController {
     return this.eventsService.deleteEvent(id);
   }
 
-  // guards : done , service : later
+  // guards : done , pipe : service , service : done
   @Post(':id/media')
   @UseGuards(EventsAuthGuard, EventsGuard)
   createEventMedia(
@@ -77,6 +80,30 @@ export class EventsController {
     createEventMediaDto: HandleEventMediaDto,
   ) {
     return this.eventsService.createEventMedia(id, createEventMediaDto);
+  }
+
+  // guards : done , pipe : service , service : done
+  @Put(':id/media')
+  @UseGuards(EventsAuthGuard, EventsGuard)
+  updateEventMedia(
+    @Query('admin_id') admin_id: string,
+    @Param('id') id: string,
+    @Body(ValidateEventMediaPipeCreation)
+    updateEventMediaDto: HandleEventMediaDto,
+  ) {
+    return this.eventsService.updateEventMedia(id, updateEventMediaDto);
+  }
+
+  // guards : done , pipe : done , service : done
+  @Put(':id/media/reorder')
+  @UseGuards(EventsAuthGuard, EventsGuard)
+  reorderEventMedia(
+    @Query('admin_id') admin_id: string,
+    @Param('id') id: string,
+    @Body(ValidateEventMediaReorderPipe)
+    reorderEventMediaDto: ReorderEventMediaDto,
+  ) {
+    return this.eventsService.reorderEventMedia(id, reorderEventMediaDto);
   }
 
   // guards : done , service : done

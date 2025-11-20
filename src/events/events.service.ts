@@ -4,6 +4,7 @@ import {
   CreateEventDto,
   GetEventsDto,
   HandleEventMediaDto,
+  ReorderEventMediaDto,
   UpdateEventDto,
 } from './dto/events-dto';
 
@@ -365,6 +366,22 @@ export class EventsService {
         };
       }
 
+      const availableEventMedia = await this.prismaService.eventMedia.findMany({
+        where: { eventId: Number(id) },
+      });
+
+      // check if new media exists in available media
+      for (const newMediaUrl of body.media) {
+        const duplicateMedia = availableEventMedia.find(
+          (media) => media.mediaUrl === newMediaUrl,
+        );
+
+        // if duplicate media, don't add it
+        if (duplicateMedia) {
+          body.media = body.media.filter((url) => url !== newMediaUrl);
+        }
+      }
+
       const createdEventMedia = await this.prismaService.eventMedia.createMany({
         data: body.media.map((mediaUrl, index) => ({
           eventId: Number(id),
@@ -373,10 +390,161 @@ export class EventsService {
         })),
       });
 
+      if (!createdEventMedia) {
+        return {
+          success: false,
+          statusCode: 500,
+          message: 'Failed to add media to event',
+        };
+      }
+
       return {
         success: true,
         statusCode: 200,
         message: `${createdEventMedia.count} media items added to event successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // service : done
+  async updateEventMedia(
+    @Param('id') id: string,
+    @Body() body: HandleEventMediaDto,
+  ) {
+    try {
+      if (!body.media || body.media.length === 0) {
+        return {
+          success: false,
+          statusCode: 400,
+          message: 'mediaUrl array cannot be empty',
+        };
+      }
+
+      let availableEventMedia = await this.prismaService.eventMedia.findMany({
+        where: { eventId: Number(id) },
+        select: {
+          mediaUrl: true,
+          displayOrder: true,
+        },
+        orderBy: { displayOrder: 'asc' },
+      });
+
+      let lastDisplayOrderIndex =
+        availableEventMedia[availableEventMedia.length - 1]?.displayOrder || 0;
+
+      // Reorder display orders for existing media to avoid gaps
+      if (lastDisplayOrderIndex !== availableEventMedia.length) {
+        availableEventMedia = availableEventMedia.map((media, index) => ({
+          mediaUrl: media.mediaUrl,
+          displayOrder: index + 1,
+        }));
+
+        lastDisplayOrderIndex = availableEventMedia.length;
+      }
+
+      let updatedEventMedia = 0;
+
+      for (const newMediaUrl of body.media) {
+        const duplicateMedia = availableEventMedia.find(
+          (media) => media.mediaUrl === newMediaUrl,
+        );
+
+        // if it's not duplicate media, add it else skip it
+        if (!duplicateMedia) {
+          availableEventMedia.push({
+            mediaUrl: newMediaUrl,
+            displayOrder: lastDisplayOrderIndex + 1,
+          });
+
+          lastDisplayOrderIndex++;
+          updatedEventMedia++;
+        }
+      }
+
+      console.log('Available Event Media after update:', availableEventMedia);
+
+      // Delete all existing media for the event
+      await this.prismaService.eventMedia.deleteMany({
+        where: { eventId: Number(id) },
+      });
+
+      // Create new media records
+      const createdEventMedia = await this.prismaService.eventMedia.createMany({
+        data: availableEventMedia.map((media) => ({
+          eventId: Number(id),
+          mediaUrl: media.mediaUrl,
+          displayOrder: media.displayOrder,
+        })),
+      });
+
+      if (!createdEventMedia) {
+        return {
+          success: false,
+          statusCode: 500,
+          message: 'Failed to add media to event',
+        };
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: `${updatedEventMedia} updated media items added to event successfully`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
+      };
+    }
+  }
+
+  // service : done
+  async reorderEventMedia(
+    @Param('id') id: string,
+    @Body() body: ReorderEventMediaDto,
+  ) {
+    try {
+      const eventMediaList = await this.prismaService.eventMedia.findMany({
+        where: { eventId: Number(id) },
+        select: {
+          mediaUrl: true,
+        },
+        orderBy: { displayOrder: 'asc' },
+      });
+
+      if (body.reorderIndexes.length !== eventMediaList.length) {
+        return {
+          success: false,
+          statusCode: 400,
+          message: 'Reorder array length does not match event media count',
+        };
+      }
+
+      // iterate through the reorderIndexes and update displayOrder in db accordingly to new index value
+      // (use the imageUrl in where clause to identify the record)
+      body.reorderIndexes.forEach(async (displayOrder, newIndex) => {
+        await this.prismaService.eventMedia.updateMany({
+          where: {
+            eventId: Number(id),
+            mediaUrl: eventMediaList[newIndex]?.mediaUrl,
+          },
+          data: {
+            displayOrder: body.reorderIndexes[newIndex],
+          },
+        });
+      });
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Event media reordered successfully',
       };
     } catch (error) {
       return {
