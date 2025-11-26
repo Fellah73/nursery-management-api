@@ -120,7 +120,8 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
     // opening time + breakfast_duration
     const firstSlotStart =
       this.timeToMinutes(nurseryConfig.openingTime!) +
-      (nurseryConfig.breakfastDuration || 0);
+      (nurseryConfig.breakfastDuration || 0) +
+      nurseryConfig.slotInterval;
 
     let nextStart = firstSlotStart;
     for (let i = 1; i <= nurseryConfig.slotsPerDay!; i++) {

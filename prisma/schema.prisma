@@ -323,11 +323,6 @@ model NurserySettings {
   slotInterval Int @default(15)
   slotsPerDay  Int @default(4)
 
-  // Horaires des repas
-  breakfastTime String? @db.VarChar(5)
-  lunchTime     String? @db.VarChar(5)
-  snackTime     String? @db.VarChar(5)
-
   // Durée des repas et siestes
   breakfastDuration Int @default(30) // minutes
   lunchDuration     Int @default(60)
