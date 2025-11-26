@@ -1,44 +1,91 @@
 import { Body, Injectable, Query, Req, Res } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { LoginDto, RegisterDto } from './dto/auth-dto';
 import * as bcrypt from 'bcrypt';
-import { env } from 'process';
+import { Request, Response } from 'express';
 import * as jwt from 'jsonwebtoken';
-import { Response, Request } from 'express';
+import { env } from 'process';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { ForgotPasswordDto, LoginDto, RegisterDto } from './dto/auth-dto';
 @Injectable()
 export class AuthService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  private formatUser(user: any) {
+    const { password, created_at, updated_at, ...formattedUser } = user;
+    return formattedUser;
+  }
+  // service : done
   async getAuth() {
-    const response = await this.prismaService.user.findMany();
-    if (!response || response.length === 0) {
+    const allUsers = await this.prismaService.user.findMany();
+    if (!allUsers || allUsers.length === 0) {
       return {
         message: 'No users found',
         statusCode: 404,
       };
     }
-    const usersWithoutPassword = response.map(({ password, ...user }) => user);
     return {
       message: 'Users retrieved successfully',
-      data: usersWithoutPassword,
+      data: allUsers.map(this.formatUser),
     };
   }
 
-  async login(body: LoginDto, @Res() res: Response) {
+  // service : done
+  async getLoggingStatus(@Req() req: Request) {
+    try {
+      const token = req.cookies?.authToken || null;
+
+      if (!token) {
+        return {
+          message: 'no token provided',
+          success: false,
+        };
+      }
+
+      // Vérifier et décoder le token
+      const payload = jwt.verify(token, process.env.AUTH_SECRET_KEY!) as any;
+
+      const user = await this.prismaService.user.findUnique({
+        where: { email: payload.email },
+      });
+
+      if (!user) {
+        return {
+          message: 'User not found',
+          success: false,
+        };
+      }
+
+      return {
+        user: this.formatUser(user),
+        message: 'User is authenticated',
+        success: true,
+      };
+    } catch (error) {
+      return {
+        error: 'Failed to retrieve logging status',
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async login(@Body() body: LoginDto, @Res() res: Response) {
     try {
       const user = await this.prismaService.user.findUnique({
         where: { email: body.email },
       });
+
       if (!user) {
         return res.status(404).json({
           message: 'User not found',
           success: false,
         });
       }
+
       const isPasswordValid = await bcrypt.compare(
         body.password,
         user.password,
       );
+
       if (!isPasswordValid) {
         return res.status(400).json({
           message: 'Wrong information',
@@ -53,6 +100,7 @@ export class AuthService {
           expiresIn: '60m',
         },
       );
+
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
@@ -60,6 +108,7 @@ export class AuthService {
         secure: false, // Set to true if using HTTPS
         path: '/',
       });
+
       return res.status(200).json({
         message: 'Login successful',
         statusCode: 200,
@@ -75,21 +124,13 @@ export class AuthService {
       };
     }
   }
-  
+
+  // service : done
   async register(body: RegisterDto, @Res() res: Response) {
     try {
-      const isExistingUser = await this.prismaService.user.findUnique({
-        where: { email: body.email },
-      });
-      if (isExistingUser) {
-        return res.status(409).json({
-          message: 'utilisateur déjà existant',
-          success: false,
-          statusCode: 409,
-        });
-      }
       const saltRounds = parseInt(env.BCRYPT_SALT_ROUNDS as string, 10) || 5;
       const hashedPassword = await bcrypt.hash(body.password, saltRounds);
+
       if (!hashedPassword) {
         return res.status(500).json({
           message: 'Erreur lors du hachage du mot de passe',
@@ -97,12 +138,17 @@ export class AuthService {
           statusCode: 500,
         });
       }
+
+      const registerBody = {
+        ...body,
+        phone: Number(body.phone),
+        password: hashedPassword,
+      };
+
       const newUser = await this.prismaService.user.create({
-        data: {
-          ...body,
-          password: hashedPassword,
-        },
+        data: registerBody,
       });
+
       const token = jwt.sign(
         { email: body.email },
         process.env?.AUTH_SECRET_KEY!,
@@ -113,15 +159,15 @@ export class AuthService {
 
       res.cookie('authToken', token, {
         httpOnly: true,
-        maxAge: 60 * 60 * 1000, // 1h
+        maxAge: 60 * 60 * 1000,
         sameSite: 'strict',
         secure: false, // Set to true if using HTTPS
         path: '/',
       });
-      const { password, ...userWithoutPassword } = newUser;
+
       return res.status(201).json({
         message: 'Registration successful',
-        user: userWithoutPassword,
+        user: this.formatUser(newUser),
         success: true,
       });
     } catch (error) {
@@ -132,44 +178,17 @@ export class AuthService {
     }
   }
 
-  logout(@Req() req: Request, @Res() res: Response) {
+  // service : done
+  async logout(@Req() req: Request, @Res() response: Response) {
     try {
       const token = req.cookies?.authToken || null;
       if (!token) {
-        return res.status(401).json({
+        return {
           message: 'No token provided',
           success: false,
-        });
+        };
       }
 
-      res.setHeader(
-        'Set-Cookie',
-        'authToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax',
-      );
-      return res.status(200).json({
-        message: 'Logout successful',
-        success: true,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: error.message || error,
-        success: false,
-      });
-    }
-  }
-
-  async getLoggingStatus(@Req() req: Request, @Res() res: Response) {
-    try {
-      const token = req.cookies?.authToken || null;
-
-      if (!token) {
-        return res.status(401).json({
-          message: 'no token provided',
-          success: false,
-        });
-      }
-
-      // Vérifier et décoder le token
       const payload = jwt.verify(token, process.env.AUTH_SECRET_KEY!) as any;
 
       const user = await this.prismaService.user.findUnique({
@@ -177,38 +196,43 @@ export class AuthService {
       });
 
       if (!user) {
-        return res.status(404).json({
+        return response.status(404).json({
           message: 'User not found',
           success: false,
         });
       }
 
-      // user without password
-      const { password, ...userWithoutPassword } = user;
+      response.setHeader(
+        'Set-Cookie',
+        'authToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax',
+      );
 
-      return res.status(200).json({
-        user: userWithoutPassword,
+      return response.status(200).json({
+        message: 'Logout successful',
         success: true,
       });
     } catch (error) {
-      return res.status(500).json({
-        error: 'Failed to retrieve logging status',
+      return {
+        message: error.message || error,
         success: false,
-      });
+      };
     }
   }
 
-  async forgotPassword(@Query('email') email: string, @Res() res: Response) {
+  // service : done
+  async forgotPassword(@Query('email') email: LoginDto['email']) {
     try {
       const user = await this.prismaService.user.findUnique({
         where: { email },
       });
+
       if (!user) {
-        return res.status(404).json({
+        return {
           message: 'User not found',
           success: false,
-        });
+        };
       }
+
       const secretQuestion = await this.prismaService.userResponse.findFirst({
         where: { user_id: user.id },
         include: {
@@ -221,40 +245,64 @@ export class AuthService {
       });
 
       if (!secretQuestion) {
-        return res.status(404).json({
+        return {
           message: 'Pas de question de sécurité trouvée pour cet utilisateur',
           success: false,
-        });
+        };
       }
 
-      return res.status(200).json({
-        message: 'Password reset link sent to your email',
+      return {
+        message: 'Password reset question sent successfully',
         question: secretQuestion.question.label,
         success: true,
-      });
+      };
     } catch (error) {
-      return res.status(500).json({
+      return {
         message: 'Error processing forgot password request',
         error: error.message || error,
         success: false,
-      });
+      };
     }
   }
 
-  async verifySecretAnswer(
-    @Query('email') email: string,
-    @Query('answer') answer: string,
-    @Res() res: Response,
-  ) {
+  // service : done
+  async getSecretQuestions() {
+    try {
+      const secretQuestions = await this.prismaService.question.findMany({});
+
+      if (!secretQuestions || secretQuestions.length === 0) {
+        return {
+          message: 'No security question found for this user',
+          success: false,
+        };
+      }
+
+      return {
+        message: 'Security question retrieved successfully',
+        question: secretQuestions.map((q) => ({ id: q.id, label: q.label })),
+        success: true,
+      };
+    } catch (error) {
+      return {
+        message: 'Error retrieving security question',
+        error: error.message || error,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async verifySecretAnswer(@Query() query: ForgotPasswordDto) {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { email },
+        where: { email: query.email },
       });
       if (!user) {
-        return res.status(404).json({
+        return {
           message: 'User not found',
           success: false,
-        });
+          statusCode: 404,
+        };
       }
       const secretQuestion = await this.prismaService.userResponse.findFirst({
         where: { user_id: user.id },
@@ -268,157 +316,66 @@ export class AuthService {
       });
 
       if (!secretQuestion) {
-        return res.status(404).json({
+        return {
           message: 'No security question found for this user',
           success: false,
-        });
+          statusCode: 404,
+        };
       }
 
-      const isAnswerCorrect =
-        secretQuestion.response.toLowerCase() === answer.toLowerCase();
-      if (!isAnswerCorrect) {
-        return res.status(400).json({
-          message: 'Incorrect answer to the security question',
+      // verify same labels
+      if (query.questionId !== secretQuestion?.question_id.toString()) {
+        return {
+          message: 'Question label does not match',
+          error: 'question',
           success: false,
-        });
+          statusCode: 400,
+        };
       }
 
-      return res.status(200).json({
+      // verify same answers
+      const isAnswerCorrect =
+        secretQuestion.response.toLowerCase() === query.answer.toLowerCase();
+      if (!isAnswerCorrect) {
+        return {
+          message: 'Incorrect answer to the security question',
+          error: 'answer',
+          success: false,
+          statusCode: 400,
+        };
+      }
+      return {
         message: 'Secret answer verified successfully',
         success: true,
-      });
+        statusCode: 200,
+      };
     } catch (error) {
-      return res.status(500).json({
+      return {
         message: 'Error verifying secret answer',
         error: error.message || error,
         success: false,
-      });
+        statusCode: 500,
+      };
     }
   }
 
-  async addQuestion(user_id: string, question: string, @Res() res: Response) {
+  // service : done
+  async resetPassword(@Body() body: LoginDto, @Res() res: Response) {
     try {
       const user = await this.prismaService.user.findUnique({
-        where: { id: Number(user_id) },
-      });
-      if (!user || (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
-        return res.status(404).json({
-          message: 'unable to add question',
-          success: false,
-        });
-      }
-
-      const existingQuestion = await this.prismaService.question.findFirst({
-        where: { label: question },
+        where: { email: body.email },
       });
 
-      if (existingQuestion) {
-        return res.status(409).json({
-          message: 'Question already exists',
-          success: false,
-        });
-      }
-
-      const newQuestion = await this.prismaService.question.create({
-        data: { label: question },
-      });
-
-      if (!newQuestion) {
-        return res.status(500).json({
-          message: 'Error adding security question',
-          success: false,
-        });
-      }
-      const questions = await this.prismaService.question.findMany({});
-
-      return res.status(201).json({
-        message: 'Security question added successfully',
-        data: questions,
-        success: true,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: 'Error adding security question',
-        error: error.message || error,
-        success: false,
-      });
-    }
-  }
-
-  async addAnswer(
-    email: string,
-    answer: string,
-    question_id: string,
-    @Res() res: Response,
-  ) {
-    try {
-      const user = await this.prismaService.user.findUnique({
-        where: { email },
-      });
-      if (!user) {
-        return res.status(404).json({
-          message: 'Unable to add answer',
-          success: false,
-        });
-      }
-
-      const question = await this.prismaService.question.findUnique({
-        where: { id: Number(question_id) },
-      });
-
-      if (!question) {
-        return res.status(404).json({
-          message: 'Question not found',
-          success: false,
-        });
-      }
-
-      const newResponse = await this.prismaService.userResponse.create({
-        data: {
-          response: answer,
-          user_id: user.id,
-          question_id: question.id,
-        },
-      });
-
-      if (!newResponse) {
-        return res.status(500).json({
-          message: 'Error adding security answer',
-          success: false,
-        });
-      }
-
-      return res.status(201).json({
-        message: 'Security answer added successfully',
-        success: true,
-      });
-    } catch (error) {
-      return res.status(500).json({
-        message: 'Error adding security answer',
-        error: error.message || error,
-        success: false,
-      });
-    }
-  }
-
-  async resetPassword(
-    email: string,
-    newPassword: string,
-    @Res() res: Response,
-  ) {
-    try {
-      const user = await this.prismaService.user.findUnique({
-        where: { email },
-      });
       if (!user) {
         return res.status(404).json({
           message: 'User not found',
           success: false,
+          statusCode: 404,
         });
       }
 
       const saltRounds = parseInt(env.BCRYPT_SALT_ROUNDS as string, 10) || 5;
-      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+      const hashedPassword = await bcrypt.hash(body.password, saltRounds);
       if (!hashedPassword) {
         return res.status(500).json({
           message: 'Error hashing password',
@@ -427,7 +384,7 @@ export class AuthService {
       }
 
       const updatedUser = await this.prismaService.user.update({
-        where: { email },
+        where: { email: body.email },
         data: { password: hashedPassword },
       });
 
@@ -437,8 +394,6 @@ export class AuthService {
           success: false,
         });
       }
-
-      const { password, ...userWithoutPassword } = updatedUser;
 
       const token = jwt.sign(
         { email: updatedUser.email },
@@ -457,7 +412,7 @@ export class AuthService {
 
       return res.status(200).json({
         message: 'Password reset successfully',
-        user: userWithoutPassword,
+        user: this.formatUser(updatedUser),
         success: true,
       });
     } catch (error) {
@@ -469,29 +424,78 @@ export class AuthService {
     }
   }
 
-  async getSecretQuestion(@Res() res: Response) {
+  // service : done
+  async addAnswer(@Body() body: ForgotPasswordDto) {
     try {
-      const secretQuestions = await this.prismaService.question.findMany({});
+      const user = await this.prismaService.user.findUnique({
+        where: { email: body.email },
+      });
 
-      if (!secretQuestions || secretQuestions.length === 0) {
-        return res.status(404).json({
-          message: 'No security question found for this user',
+      // check if user exists
+      if (!user) {
+        return {
+          message: 'Unable to add answer',
           success: false,
-        });
+          statusCode: 404,
+        };
       }
 
-      return res.status(200).json({
-        message: 'Security question retrieved successfully',
-        question: secretQuestions,
-        success: true,
+      const question = await this.prismaService.question.findUnique({
+        where: { id: Number(body.questionId) },
       });
+
+      // check if question exists
+      if (!question) {
+        return {
+          message: 'Question not found',
+          success: false,
+          statusCode: 404,
+        };
+      }
+
+      const existingResponse = await this.prismaService.userResponse.findFirst({
+        where: {
+          user_id: user.id,
+        },
+      });
+
+      // check if answer already exists for this user
+      if (existingResponse) {
+        return {
+          message: 'Answer already exists for this user',
+          error: 'duplicate_answer',
+          success: false,
+          statusCode: 400,
+        };
+      }
+
+      const newResponse = await this.prismaService.userResponse.create({
+        data: {
+          response: body.answer,
+          user_id: user.id,
+          question_id: question.id,
+        },
+      });
+
+      if (!newResponse) {
+        return {
+          message: 'Error adding security answer',
+          success: false,
+          statusCode: 500,
+        };
+      }
+
+      return {
+        message: 'Security answer added successfully',
+        success: true,
+        statusCode: 201,
+      };
     } catch (error) {
-      return res.status(500).json({
-        message: 'Error retrieving security question',
+      return {
+        message: 'Error adding security answer',
         error: error.message || error,
         success: false,
-      });
+      };
     }
   }
-
 }
