@@ -12,7 +12,12 @@ export class ValidateUserPipe<T> implements PipeTransform {
       const phoneExist = await this.phoneExists(value['phone']);
 
       if (phoneExist) {
-        throw new BadRequestException('Phone number already exists');
+        throw new BadRequestException({
+          success: false,
+          statusCode: 400,
+          error: 'Phone',
+          message: 'Phone already exists',
+        });
       }
     }
 
@@ -34,7 +39,7 @@ export class ValidateUserPipe<T> implements PipeTransform {
   }
 }
 
-// Validate user creation pipe 
+// Validate user creation pipe
 @Injectable()
 export class ValidateUserCreationPipe
   extends ValidateUserPipe<UserDtoCreate>
@@ -49,7 +54,12 @@ export class ValidateUserCreationPipe
     // email checker
     const emailExist = await this.emailExists(value['email']);
     if (emailExist) {
-      throw new BadRequestException('Email already exists');
+      throw new BadRequestException({
+        success: false,
+        statusCode: 400,
+        error: 'Email',
+        message: 'Email already exists',
+      });
     }
 
     // check phone duplication if phone passed in parent class
@@ -70,7 +80,12 @@ export class ValidateUserUpdatePipe
     if (value.email) {
       const emailExist = await this.emailExists(value['email']);
       if (emailExist) {
-        throw new BadRequestException('Email already exists');
+        throw new BadRequestException({
+          success: false,
+          statusCode: 400,
+          error: 'Email',
+          message: 'Email already exists',
+        });
       }
     }
 

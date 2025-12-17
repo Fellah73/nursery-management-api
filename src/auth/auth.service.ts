@@ -68,6 +68,71 @@ export class AuthService {
   }
 
   // service : done
+  async loggingStatusRevalidation(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query('email') email: string,
+  ) {
+    try {
+      const token = req.cookies?.authToken || null;
+      if (!token) {
+        return {
+          message: 'No token provided',
+          success: false,
+        };
+      }
+
+      const payload = jwt.verify(token, process.env.AUTH_SECRET_KEY!) as any;
+
+      if (payload.email == email) {
+        return {
+          message: 'Token email match provided email , no need to revalidate',
+          success: false,
+        };
+      }
+
+      const user = await this.prismaService.user.findUnique({
+        where: { email: email },
+      });
+
+      if (!user) {
+        return {
+          message: 'user not found with this new email',
+          success: false,
+        };
+      }
+
+      // delete old cookie and set new one
+      res.clearCookie('authToken');
+     
+      // revalidate email token with provided email
+      const newToken = jwt.sign({ email }, process.env.AUTH_SECRET_KEY!, {
+        expiresIn: '60m',
+      });
+
+      res.cookie('authToken', newToken, {
+        httpOnly: true,
+        maxAge: 60 * 60 * 1000,
+        sameSite: 'lax',
+        secure: false,
+        path: '/',
+      });
+
+      return res.status(200).json({
+        message: 'Login successful',
+        statusCode: 200,
+        success: true,
+        user : this.formatUser(user),
+      });
+    } catch (error) {
+      return {
+        error: 'Failed to revalidate logging status',
+        success: false,
+      };
+    }
+  }
+
+  // service : done
   async login(@Body() body: LoginDto, @Res() res: Response) {
     try {
       const user = await this.prismaService.user.findUnique({
@@ -238,6 +303,7 @@ export class AuthService {
         include: {
           question: {
             select: {
+              id: true,
               label: true,
             },
           },
@@ -253,7 +319,7 @@ export class AuthService {
 
       return {
         message: 'Password reset question sent successfully',
-        question: secretQuestion.question.label,
+        question: secretQuestion.question,
         success: true,
       };
     } catch (error) {

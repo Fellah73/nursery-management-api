@@ -1,7 +1,7 @@
 import { Body, Injectable, Param, Query } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ChildrenDtoGet } from './dto/children-dto';
+import { ChildrenDtoGet, updateType } from './dto/children-dto';
 
 @Injectable()
 export class ChildrenService {
@@ -388,15 +388,29 @@ export class ChildrenService {
   }
 
   // service : done
-  async updateChildByType(@Param('id') id: number, @Body() body: any) {
+  async updateChildByType(
+    @Param('id') id: number,
+    @Param('type') type: string,
+    @Body() body: any,
+  ) {
     try {
+    
+      if (body.type != type) {
+        return {
+          status: 'error',
+          message: 'Type mismatch between query and body',
+          success: false,
+          statusCode: 400,
+        };
+      }
+
       const existingChild = await this.prismaService.children.findUnique({
         where: { id: Number(id) },
       });
 
       let updateData = {};
 
-      if (body.type == 'contact') {
+      if (type === updateType.CONTACT) {
         updateData = {
           emergency_contact:
             body.emergency_contact || existingChild!.emergency_contact,
@@ -409,24 +423,24 @@ export class ChildrenService {
             body.secondary_emergency_phone ||
             existingChild!.secondary_emergency_phone,
         };
-      } else if (body.type == 'address') {
+      } else if (type === updateType.ADDRESS) {
         updateData = {
           address: body.address || existingChild!.address,
           city: body.city || existingChild!.city,
         };
-      } else if (body.type == 'medical_info') {
+      } else if (type === updateType.MEDICAL_INFO) {
         updateData = {
           medical_info: body.medical_info,
         };
-      } else if (body.type == 'special_needs') {
+      } else if (type === updateType.SPECIAL_NEEDS) {
         updateData = {
           special_needs: body.special_needs,
         };
-      } else if (body.type == 'notes') {
+      } else if (type === updateType.NOTES) {
         updateData = {
           notes: body.notes,
         };
-      } else if (body.type == 'vaccination_status') {
+      } else if (type === updateType.VACCINATION_STATUS) {
         updateData = {
           vaccination_status: body.vaccination_status,
         };

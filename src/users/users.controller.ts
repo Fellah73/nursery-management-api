@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -87,7 +88,7 @@ export class UsersController {
 
   // guards : done , pipe : done , service : done
   @Patch('profile/:id')
-  @UseGuards(UserAuthGuard, UserGuard)
+  @UseGuards(UserGuard)
   updateUserProfile(
     @Query('admin_id') admin_id: number,
     @Param('id') user_id: number,

@@ -11,18 +11,16 @@ import {
 import { Gender } from 'generated/prisma';
 
 export class AllergyDto {
-  @Matches(
-    /^(Allergies alimentaires|Allergies respiratoires|Allergies médicamenteuses|Allergies de contact \/ environnement)$/,
-    {
-      message:
-        'category must be one of the following: Allergies alimentaires, Allergies respiratoires, Allergies médicamenteuses, Allergies de contact / environnement',
-    },
-  )
+  @Matches(/^(alimentaires|respiratoires|médicamenteuses|contact)$/, {
+    message:
+      'category must be one of the following: alimentaires, respiratoires, médicamenteuses or contact',
+  })
   category: string;
 
   @IsString()
   name: string;
 }
+
 export class CreateChildDto {
   @IsString()
   full_name: string;
@@ -112,4 +110,13 @@ export class ChildrenDtoGet {
   @IsOptional()
   @IsNumberString()
   page?: number;
+}
+
+export enum updateType {
+  CONTACT = 'contact',
+  ADDRESS = 'address',
+  MEDICAL_INFO = 'medical_info',
+  SPECIAL_NEEDS = 'special_needs',
+  NOTES = 'notes',
+  VACCINATION_STATUS = 'vaccination_status',
 }

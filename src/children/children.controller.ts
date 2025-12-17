@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { Category } from 'generated/prisma';
 import { ChildrenService } from './children.service';
-import { ChildrenDtoGet, CreateChildDto } from './dto/children-dto';
+import { ChildrenDtoGet, CreateChildDto, updateType } from './dto/children-dto';
 import { ChildrenAuthGuard } from './gurads/auth/auth.guard';
 import { ChildrenGuard } from './gurads/child/child.guard';
 import { ValidateChildCreationPipe } from './pipe/validate-child';
@@ -71,17 +71,6 @@ export class ChildrenController {
     return this.childrenService.getChildById(id);
   }
 
-   // guards : done , pipe : done , service : done
-  @Put(':id')
-  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
-  updateChildType(
-    @Query('admin_id') admin_id: string,
-    @Param('id') id: number,
-    @Body(ValidateChildUpdatePipe) body: any,
-  ) {
-    return this.childrenService.updateChildByType(Number(id), body);
-  }
-
   // guards : done , service : done
   @Get(':id/medical-info')
   @UseGuards(ChildrenAuthGuard, ChildrenGuard)
@@ -92,4 +81,15 @@ export class ChildrenController {
     return this.childrenService.getMedicalInfoByChildId(Number(id));
   }
 
+  // guards : done , pipe : done , service : done
+  @Put(':id/:type')
+  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
+  updateChildType(
+    @Query('admin_id') admin_id: string,
+    @Param('id') id: number,
+    @Param('type') type: updateType,
+    @Body(ValidateChildUpdatePipe) body: any,
+  ) {
+    return this.childrenService.updateChildByType(Number(id), type, body);
+  }
 }

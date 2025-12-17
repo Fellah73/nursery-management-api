@@ -11,6 +11,11 @@ import {
 export class MenuService {
   constructor(private readonly prismaService: PrismaService) {}
 
+  private timeToMinutes(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
   // service : done
   async getMenuPeriods() {
     try {
@@ -329,6 +334,59 @@ export class MenuService {
         message: 'Menu meals retrieved successfully',
         success: true,
         meals: mealsByDay,
+      };
+    } catch (error) {
+      return {
+        status: 500,
+        message: error.message || 'Internal server error',
+        success: false,
+      };
+    }
+  }
+
+  // service : done
+  async getMenuMealTimes() {
+    try {
+      const nurserySettings =
+        await this.prismaService.nurserySettings.findFirst({});
+
+      if (!nurserySettings) {
+        return {
+          status: 404,
+          message: 'Nursery settings not found',
+          success: false,
+        };
+      }
+
+      let mealTimes = new Map<string, string>();
+      mealTimes.set('Breakfast', nurserySettings?.openingTime);
+
+      let time = this.timeToMinutes(nurserySettings.openingTime);
+      time += nurserySettings.breakfastDuration + nurserySettings.slotInterval;
+
+      // iterate over the slots per day
+      for (let i = 1; i <= nurserySettings.slotsPerDay!; i++) {
+        // the time of a meal (Lunch) is after half of the slots
+        if (i === nurserySettings.slotsPerDay / 2 + 1) {
+          mealTimes.set('Lunch', `${Math.floor(time / 60)}:${time % 60}`);
+
+          // add lunch duration + interval
+          time += nurserySettings.lunchDuration + nurserySettings.slotInterval;
+
+          // add nap duration + interval
+          time += nurserySettings.napDuration + nurserySettings.slotInterval;
+        }
+
+        time += nurserySettings.slotDuration + nurserySettings.slotInterval;
+      }
+
+      mealTimes.set('Gouter', `${Math.floor(time / 60)}:${time % 60}`);
+
+      return {
+        status: 200,
+        message: 'Menu meal times retrieved successfully',
+        success: true,
+        mealTimes: Object.fromEntries(mealTimes),
       };
     } catch (error) {
       return {

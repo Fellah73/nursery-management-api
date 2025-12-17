@@ -18,7 +18,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   // service : done
-  @Get() // GET auth/
+  @Get()
   getAuth() {
     return this.authService.getAuth();
   }
@@ -27,6 +27,15 @@ export class AuthController {
   @Get('/me')
   getLoggingStatus(@Req() req: Request) {
     return this.authService.getLoggingStatus(req);
+  }
+
+
+  // service : done
+  @Post('/revalidate')
+  getLoggingStatusRevalidation(@Req() req: Request,
+  @Res() res: Response,
+  @Query('email') email: string) {
+    return this.authService.loggingStatusRevalidation(req,res, email);
   }
 
   // service : done

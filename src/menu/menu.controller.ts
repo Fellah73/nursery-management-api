@@ -17,10 +17,13 @@ import {
   UpdateMenuPeriodDto,
 } from './dto/menu-dto';
 import { AuthGuard } from './guards/auth/auth.guard';
+import { MenuPeriodsGuard } from './guards/period/period.guard';
 import { MenuService } from './menu.service';
 import { ValidateMealsPipe } from './pipes/validate-menu-meals';
-import { ValidateMenuPeriodCreationPipe, ValidateMenuPeriodUpdatePipe } from './pipes/validate-menu-period';
-import { MenuPeriodsGuard } from './guards/period/period.guard';
+import {
+  ValidateMenuPeriodCreationPipe,
+  ValidateMenuPeriodUpdatePipe,
+} from './pipes/validate-menu-period';
 
 @Controller('menu')
 export class MenuController {
@@ -44,7 +47,6 @@ export class MenuController {
     return this.menuService.createMenuPeriod(body, type);
   }
 
-
   // guards : done , service : done , handleCall : done
   @Get('/programme')
   @UseGuards(AuthGuard)
@@ -60,6 +62,13 @@ export class MenuController {
     @Query('category') category: Category,
   ) {
     return this.menuService.getMenuMeals(category);
+  }
+
+  // guards : done , service : done
+  @Get('/meals/times')
+  @UseGuards(AuthGuard)
+  getMenuMealTimes(@Query('admin_id') admin_id: string) {
+    return this.menuService.getMenuMealTimes();
   }
 
   // guards : done , pipe : done , service : done , handleCall : done
