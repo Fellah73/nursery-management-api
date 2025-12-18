@@ -557,14 +557,6 @@ export class MenuService {
         };
       }
 
-      if (!body.meals || body.meals.length === 0) {
-        return {
-          status: 400,
-          message: 'No meals provided',
-          success: false,
-        };
-      }
-
       const existingMeals = await this.prismaService.menu.findMany({
         where: { menuPeriodId: Number(finalPeriodId) },
       });
@@ -600,7 +592,7 @@ export class MenuService {
         return {
           status: 400,
           message: 'No new menus were created. They might already exist.',
-          success: false,
+          success: true,
         };
       }
       return {

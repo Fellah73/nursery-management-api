@@ -12,7 +12,7 @@ export class AssignmentsGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const assignment_id =
-      request.query.id || request.body.id || request.params.id;
+      request.query.id || request.params.id || request.body.id;
 
     if (!assignment_id) {
       throw new ForbiddenException('Assignment ID is required');
