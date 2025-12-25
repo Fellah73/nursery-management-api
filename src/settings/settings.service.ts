@@ -31,6 +31,7 @@ export class SettingsService {
 
       if (!settings) {
         return {
+          success: false,
           status: 'error',
           message: 'No settings found',
           statusCode: 404,
@@ -38,6 +39,7 @@ export class SettingsService {
       }
 
       return {
+        success: true,
         status: 'success',
         message: 'Settings retrieved successfully',
         settings: this.getFormattedSettings(settings),
@@ -45,6 +47,7 @@ export class SettingsService {
       };
     } catch (error) {
       return {
+        success: false,
         status: 'error',
         message: 'Failed to retrieve settings',
         error: error.message,
@@ -64,12 +67,14 @@ export class SettingsService {
       });
 
       return {
+        success: true,
         status: 'success',
         message: 'Settings updated successfully',
         statusCode: 200,
       };
     } catch (error) {
       return {
+        success: false,
         status: 'error',
         message: 'Failed to update settings',
         error: error.message,

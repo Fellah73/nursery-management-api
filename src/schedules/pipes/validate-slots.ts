@@ -92,6 +92,7 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
         );
       }
 
+      console.log(`Slot ${i + 1} on ${slot['startTime']} : ${slot['endTime']}`);
       const duration = endMinutes - startMinutes;
       if (duration !== slotDuration) {
         throw new BadRequestException(
@@ -125,8 +126,11 @@ export class ValidateSlotsPipe<T, U> implements PipeTransform {
 
     let nextStart = firstSlotStart;
     for (let i = 1; i <= nurseryConfig.slotsPerDay!; i++) {
+      const middleSlotPosition = Math.floor(nurseryConfig.slotsPerDay! % 2 === 0 ? nurseryConfig.slotsPerDay! / 2 : nurseryConfig.slotsPerDay! / 2 + 1) + 1;
+      console.log('Middle Slot Position:', middleSlotPosition);
+
       // put the breakfast break after the first slot
-      if (i === nurseryConfig.slotsPerDay / 2 + 1) {
+      if (i === middleSlotPosition) {
         // lunch break + interval
         nextStart += nurseryConfig.lunchDuration + nurseryConfig.slotInterval;
 

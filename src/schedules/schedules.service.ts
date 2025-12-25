@@ -692,7 +692,7 @@ export class SchedulesService {
     @Body() body: CreateScheduleSlotsDto,
   ) {
     try {
-      if (!body.slots || body.slots.length === 0) {
+      if (!body.slots) {
         return {
           success: false,
           message: 'No slots provided',
