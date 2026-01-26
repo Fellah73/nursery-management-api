@@ -317,6 +317,7 @@ model NurserySettings {
 
   // Horaires d'ouverture
   openingTime String @db.VarChar(5)
+  closingTime String? @db.VarChar(5)
 
   // Configuration des créneaux d'attendance
   slotDuration Int @default(60)

@@ -17,6 +17,62 @@ export class SettingsService {
     snackDuration: 15,
   };
 
+  private timeToMinutes(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private getSlotsStartTimes(nurseryConfig: UpdateSettingsDto): string[] {
+    let startTimes: number[] = [];
+    // opening time + breakfast_duration
+    const firstSlotStart =
+      this.timeToMinutes(nurseryConfig.openingTime!) +
+      (nurseryConfig.breakfastDuration || 0) +
+      nurseryConfig.slotInterval;
+
+    let nextStart = firstSlotStart;
+    for (let i = 1; i <= nurseryConfig.slotsPerDay!; i++) {
+      const middleSlotPosition =
+        Math.floor(
+          nurseryConfig.slotsPerDay! % 2 === 0
+            ? nurseryConfig.slotsPerDay! / 2
+            : nurseryConfig.slotsPerDay! / 2 + 1,
+        ) + 1;
+
+      // put the breakfast break after the first slot
+      if (i === middleSlotPosition) {
+        // lunch break + interval
+        nextStart += nurseryConfig.lunchDuration + nurseryConfig.slotInterval;
+
+        // add nap duration + interval
+        nextStart += nurseryConfig.napDuration + nurseryConfig.slotInterval;
+      }
+
+      // push the next start time of the slot
+      startTimes.push(nextStart);
+
+      // increment by the slot duration
+      nextStart += nurseryConfig.slotDuration + nurseryConfig.slotInterval;
+    }
+
+    // convert the minutes to HH:mm format
+    const formattedStartTimes: string[] = startTimes.map((minutes) => {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    });
+
+    return formattedStartTimes;
+  }
+
+  private getFormattedStartTimes(startTimes: number[]): string[] {
+    return startTimes.map((minutes) => {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    });
+  }
+
   private getFormattedSettings(settings: any) {
     const { id, createdAt, updatedAt, ...rest } = settings;
     return rest;
@@ -62,8 +118,18 @@ export class SettingsService {
       // delete existing settings
       await this.prismaService.nurserySettings.deleteMany({});
 
+      let startTimes = this.getSlotsStartTimes(body);
+
+      let time =
+        this.timeToMinutes(startTimes[startTimes.length - 1]) +
+        body.slotDuration +
+        body.slotInterval +
+        body.snackDuration;
+
+      let closingTime = this.getFormattedStartTimes([time])[0];
+
       const newSettings = await this.prismaService.nurserySettings.create({
-        data: { ...body },
+        data: { ...body, closingTime },
       });
 
       return {
