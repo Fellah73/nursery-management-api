@@ -103,6 +103,7 @@ export class AttendanceService {
             familyName: true,
             email: true,
             gender: true,
+            profile_picture: true,
             classroom: {
               select: {
                 name: true,
@@ -202,6 +203,8 @@ export class AttendanceService {
           child: {
             select: {
               full_name: true,
+              gender: true,
+              profile_picture: true,
             },
           },
         },
@@ -226,6 +229,8 @@ export class AttendanceService {
           child: {
             select: {
               full_name: true,
+              gender: true,
+              profile_picture: true,
             },
           },
         },
@@ -294,7 +299,7 @@ export class AttendanceService {
     // attendance date
     const attendanceDate = await this.prismaService.attendanceDate.findFirst({
       where: {
-        date: new Date(new Date().setHours(0, 0, 0, 0)),
+        date: new Date(new Date().setHours(12, 0, 0, 0)),
       },
     });
     // return all attendance dates with attendance records
@@ -318,9 +323,13 @@ export class AttendanceService {
         select: {
           id: true,
           status: true,
+          checkInTime: true,
+          checkOutTime: true,
           child: {
             select: {
               full_name: true,
+              gender: true,
+              profile_picture: true,
             },
           },
         },

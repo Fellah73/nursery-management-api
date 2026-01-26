@@ -21,7 +21,7 @@ export class SettingsAuthGuard implements CanActivate {
       where: { id: Number(admin_id) },
     });
 
-    if (!user || (user.role !== 'SUPER_ADMIN')) {
+    if (!user) {
       throw new ForbiddenException('Super Admin access required');
     }
 

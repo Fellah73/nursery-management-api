@@ -714,6 +714,7 @@ export class SchedulesService {
       for (const slot of body.slots) {
         const createdSlot = await this.prismaService.schedule.create({
           data: {
+            category : slot.category || 'GENERAL',
             schedulePeriodId: periodId,
             dayOfWeek: slot.dayOfWeek as DayOfWeek,
             startTime: slot.startTime,

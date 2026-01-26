@@ -87,8 +87,8 @@ export class UpdateSlotDto extends SlotDto {
 export class CreateScheduleSlotsDto {
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SlotDto)
-  slots: SlotDto[];
+  @Type(() => UpdateSlotDto)
+  slots: UpdateSlotDto[];
 }
 
 export class UpdateScheduleSlotDto {    
