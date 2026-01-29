@@ -80,7 +80,7 @@ export class AttendanceService {
     // attendance date
     const attendanceDate = await this.prismaService.attendanceDate.findFirst({
       where: {
-        date: new Date(new Date().setHours(0, 0, 0, 0)),
+        date: new Date(new Date().setHours(12, 0, 0, 0)),
       },
     });
 
@@ -147,6 +147,19 @@ export class AttendanceService {
         id: true,
         name: true,
         category: true,
+        capacity: true,
+        teacher: {
+          select: {
+            name: true,
+            familyName: true,
+            email: true,
+          },
+        },
+        _count: {
+          select: {
+            assignments: true,
+          },
+        },
       },
       orderBy: { category: 'asc' },
       where: {
@@ -176,7 +189,7 @@ export class AttendanceService {
     // get attendance Date
     const attendanceDate = await this.prismaService.attendanceDate.findFirst({
       where: {
-        date: new Date(new Date().setHours(0, 0, 0, 0)),
+        date: new Date(new Date().setHours(12, 0, 0, 0)),
       },
     });
 
@@ -200,6 +213,8 @@ export class AttendanceService {
         select: {
           id: true,
           status: true,
+          checkInTime: true,
+          checkOutTime: true,
           child: {
             select: {
               full_name: true,
@@ -226,6 +241,8 @@ export class AttendanceService {
         select: {
           id: true,
           status: true,
+          checkInTime: true,
+          checkOutTime: true,
           child: {
             select: {
               full_name: true,
@@ -390,13 +407,17 @@ export class AttendanceService {
         ),
       );
 
+      const openingTime = await this.prismaService.nurserySettings.findFirst(
+        {},
+      );
+
       const checkInEndTime = new Date(
         Date.UTC(
           currentDate.getFullYear(),
           currentDate.getMonth(),
           currentDate.getDate(),
-          8,
-          15,
+          Number(openingTime?.openingTime.split(':')[0]),
+          Number(openingTime?.openingTime.split(':')[1]),
         ),
       );
 
@@ -447,6 +468,17 @@ export class AttendanceService {
         };
       }
 
+      console.log(attendance);
+
+      if (attendance.checkOutTime) {
+        return {
+          message:
+            "L'heure de départ a déjà été enregistrée pour ce registre de présence",
+          status: 400,
+          success: true,
+        };
+      }
+
       // create date with current date and provided time
       const currentDate = new Date();
       const [hours, minutes] = body.time.split(':').map(Number);
@@ -459,6 +491,8 @@ export class AttendanceService {
           minutes,
         ),
       );
+
+      console.log('i am here');
 
       // update attendance record
       await this.prismaService.attendance.update({
@@ -486,6 +520,7 @@ export class AttendanceService {
     }
   }
 
+  // not called yet
   // staff mark absent handler
   async StaffMarkAbsentHandler(
     @Param('id') id: number,
@@ -534,34 +569,58 @@ export class AttendanceService {
 
   // staff absence handler
   async staffAbsenceHandler() {
-    if (new Date().getHours() < 18) {
+    console.log('Running staff absence handler...');
+
+    const closingTime = await this.prismaService.nurserySettings.findFirst({});
+
+    // compare current time with closing time (hh:mm)
+    const currentTime = new Date();
+    const currentHours = currentTime.getHours();
+    const currentMinutes = currentTime.getMinutes();
+
+    const closingHours = Number(closingTime?.closingTime!.split(':')[0]);
+    const closingMinutes = Number(closingTime?.closingTime!.split(':')[1]);
+
+    if (
+      currentHours < closingHours ||
+      (currentHours === closingHours && currentMinutes < closingMinutes)
+    ) {
+      console.log('Staff absence handler: Not past closing time yet.');
       return {
-        message: "La gestion des absences n'est disponible qu'après 18h00",
+        message: `La gestion des absences n'est disponible qu'après ${closingTime?.closingTime}`,
         status: 403,
         success: false,
       };
     }
 
     try {
-      // to be implemented
-      const checkOutEndTime = new Date();
-      checkOutEndTime.setHours(18, 0, 0, 0); // Set to 6pm
-
       const attendanceRecords = await this.prismaService.attendance.findMany({
         where: {
           entityType: 'STAFF',
-          status: 'PENDING',
         },
       });
 
-      // update all pending attendance records to absent
+      const now = new Date();
+      now.setHours(now.getHours() + 1);
+
+      // update all pending attendance records to absent (if no check-in)
       attendanceRecords.forEach(async (record) => {
-        await this.prismaService.attendance.update({
-          where: { id: record.id },
-          data: {
-            status: 'ABSENT',
-          },
-        });
+        if (record.checkInTime === null) {
+          await this.prismaService.attendance.update({
+            where: { id: record.id },
+            data: {
+              status: 'ABSENT',
+            },
+          });
+        } else {
+          console.log(record.id);
+          await this.prismaService.attendance.update({
+            where: { id: record.id },
+            data: {
+              checkOutTime: now,
+            },
+          });
+        }
       });
 
       return {
@@ -690,7 +749,7 @@ export class AttendanceService {
     }
   }
 
-  // children mark absent handler
+  // children mark absent handler (no call yet)
   // service : done
   async markAbsentChildrenAttendanceHandler(
     @Param('id') id: number,

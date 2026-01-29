@@ -115,7 +115,7 @@ export class AttendanceController {
   }
 
   // guards : done , service : done
-  @Patch('staff/:id/mark-absent')
+  @Patch('staff/:id/absent')
   @UseGuards(AdminAuthGuard,StaffGuard)
   async staffMarkAbsentHandler(
     @Param('id') id: number,
