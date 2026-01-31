@@ -80,7 +80,7 @@ export class AttendanceController {
   }
 
   // guards : done , service : done
-  @Patch('children/:id/mark-absent')
+  @Patch('children/:id/absent')
   @UseGuards(TeacherAuthGuard,ChildrenGuard)
   async markAbsentChildrenAttendanceHandler(
     @Param('id') id: number,

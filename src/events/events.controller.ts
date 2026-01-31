@@ -10,18 +10,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { EventsService } from './events.service';
-import { EventsAuthGuard } from './guards/auth.guard';
 import {
   CreateEventDto,
+  EventDtoGet,
   GetEventsDto,
   HandleEventMediaDto,
   ReorderEventMediaDto,
   UpdateEventDto,
 } from './dto/events-dto';
+import { EventsService } from './events.service';
+import { EventsAuthGuard } from './guards/auth.guard';
 import { EventsGuard } from './guards/event.guard';
 import { ValidateEventMediaPipeCreation } from './pipe/validate-event-media';
-import { Validate } from 'class-validator';
 import { ValidateEventMediaReorderPipe } from './pipe/validate-reorder-evetns-media';
 
 @Controller('events')
@@ -43,6 +43,14 @@ export class EventsController {
     @Body() createEventDto: CreateEventDto,
   ) {
     return this.eventsService.createEvent(admin_id, createEventDto);
+  }
+
+  // guards : done , service : done
+  @Get('period')
+  @UseGuards(EventsAuthGuard)
+  getEventsPeriod(@Query('admin_id') admin_id: string,
+   @Query() query: EventDtoGet) {
+    return this.eventsService.getEventsPeriod(query);
   }
 
   // guards : done , service : done

@@ -25,6 +25,15 @@ export class GetEventsDto {
   isPublished?: string;
 }
 
+export class EventDtoGet {
+  @IsString()
+  perPage: string;
+
+  @IsOptional()
+  @IsNumberString()
+  page?: number;
+}
+
 export class CreateEventDto {
   @IsString()
   @Matches(/^[A-Z]/, {

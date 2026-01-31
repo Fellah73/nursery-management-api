@@ -2,6 +2,7 @@ import { Body, Injectable, Param, Query } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateEventDto,
+  EventDtoGet,
   GetEventsDto,
   HandleEventMediaDto,
   ReorderEventMediaDto,
@@ -99,6 +100,130 @@ export class EventsService {
         success: false,
         statusCode: 500,
         message: 'Internal server error',
+      };
+    }
+  }
+
+  // service : done
+  async getEventsPeriod(@Query() query: EventDtoGet) {
+    try {
+      const perPage = query.perPage ? Number(query.perPage) : 10;
+      const page = query.page && query.page > 0 ? Number(query.page) : 1;
+
+      const skip = (page - 1) * perPage;
+
+      let eventsPeriods;
+
+      eventsPeriods = await this.prismaService.event.findMany({
+        take: perPage && perPage !== 0 ? perPage : undefined,
+        skip: perPage !== 0 ? skip : undefined, // Only skip if we're using pagination
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          eventDate: true,
+          eventType: true,
+          location: true,
+          isPublished: true,
+          child: {
+            select: {
+              id: true,
+              full_name: true,
+              gender: true,
+              profile_picture: true,
+            },
+          },
+        },
+        orderBy: {
+          eventDate: 'desc',
+        },
+      });
+
+
+      // Bithday case
+      const childClassroomMap = new Map<number, string | null>();
+
+      eventsPeriods.forEach((event) => {
+        if (event.child && event.child.id) {
+          childClassroomMap.set(event.child.id, null);
+        }
+      });
+
+      for (const event of eventsPeriods) {
+        if (event.eventType === 'BIRTHDAY' && event.child && event.child.id) {
+          try {
+            const childWithClassroom =
+              await this.prismaService.assignment.findFirst({
+                where: { childId: event.child.id },
+                include: {
+                  classroom: {
+                    select: {
+                      category: true,
+                    },
+                  },
+                },
+              });
+
+            if (childWithClassroom) {
+              childClassroomMap.set(
+                event.child.id,
+                childWithClassroom.classroom.category,
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Error fetching classroom for child ${event.child.id}:`,
+              error,
+            );
+          }
+        }
+      }
+
+      const eventsWithCategories = eventsPeriods.map((event) => ({
+        ...event,
+        category:
+          event.child && event.child.id
+            ? childClassroomMap.get(event.child.id) || null
+            : null,
+      }));
+
+      const totalEvents = await this.prismaService.event.count();
+
+      return {
+        message: 'Events retrieved successfully',
+        events: eventsWithCategories,
+        pagination: {
+          page: page,
+          perPage: perPage || 'All',
+          pages: perPage ? Math.ceil(eventsPeriods.length / perPage) : 1,
+        },
+        metaData: {
+          total: totalEvents,
+          stats: {
+            total: eventsPeriods.length,
+            excursions: eventsPeriods.filter(
+              (event) => event.eventType === 'FIELD_TRIP',
+            ).length,
+            special_days: eventsPeriods.filter(
+              (event) => event.eventType === 'SPECIAL_DAY',
+            ).length,
+            spectacles: eventsPeriods.filter(
+              (event) => event.eventType === 'SPECTACLE',
+            ).length,
+            anniversaires: eventsPeriods.filter(
+              (event) => event.eventType === 'BIRTHDAY',
+            ).length,
+          },
+        },
+        success: true,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while retrieving schedule periods',
+        error: error.message,
+        statusCode: 500,
+        success: false,
       };
     }
   }

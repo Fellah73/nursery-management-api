@@ -304,7 +304,7 @@ model EventMedia {
   eventId Int
   event   Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  mediaUrl     String @db.Text // img/video URL
+  mediaUrl     String @db.Text
   displayOrder Int    @default(0)
 
   createdAt DateTime @default(now())
@@ -316,7 +316,7 @@ model NurserySettings {
   id Int @id @default(autoincrement())
 
   // Horaires d'ouverture
-  openingTime String @db.VarChar(5)
+  openingTime String  @db.VarChar(5)
   closingTime String? @db.VarChar(5)
 
   // Configuration des créneaux d'attendance

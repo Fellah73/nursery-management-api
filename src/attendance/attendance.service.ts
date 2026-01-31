@@ -520,7 +520,6 @@ export class AttendanceService {
     }
   }
 
-  // not called yet
   // staff mark absent handler
   async StaffMarkAbsentHandler(
     @Param('id') id: number,
@@ -573,12 +572,12 @@ export class AttendanceService {
 
     const closingTime = await this.prismaService.nurserySettings.findFirst({});
 
-    // compare current time with closing time (hh:mm)
+    // compare current time with closing time (hh:mm) + 2 hours (grace period)
     const currentTime = new Date();
     const currentHours = currentTime.getHours();
     const currentMinutes = currentTime.getMinutes();
 
-    const closingHours = Number(closingTime?.closingTime!.split(':')[0]);
+    const closingHours = Number(closingTime?.closingTime!.split(':')[0]) + 2;
     const closingMinutes = Number(closingTime?.closingTime!.split(':')[1]);
 
     if (
@@ -700,6 +699,9 @@ export class AttendanceService {
     @Body() body: AttendanceUpdateDto,
   ) {
     try {
+      // check the attendance absences
+      await this.ChildrenAbsenceHandler();
+
       // get attendance record
       const attendance = await this.prismaService.attendance.findUnique({
         where: { id },
@@ -709,6 +711,15 @@ export class AttendanceService {
           message: "Le registre de présence n'existe pas",
           status: 404,
           success: false,
+        };
+      }
+
+      if (attendance.checkOutTime) {
+        return {
+          message:
+            "L'heure de départ a déjà été enregistrée pour ce registre de présence",
+          status: 400,
+          success: true,
         };
       }
 
@@ -749,7 +760,7 @@ export class AttendanceService {
     }
   }
 
-  // children mark absent handler (no call yet)
+  // children mark absent handler
   // service : done
   async markAbsentChildrenAttendanceHandler(
     @Param('id') id: number,
@@ -790,6 +801,77 @@ export class AttendanceService {
         message:
           error.message ||
           "Erreur lors de l'approbation du registre de présence",
+        status: 500,
+        success: false,
+      };
+    }
+  }
+
+  // children absence handler
+  async ChildrenAbsenceHandler() {
+    console.log('Running children absence handler...');
+
+    const closingTime = await this.prismaService.nurserySettings.findFirst({});
+
+    // compare current time with closing time (hh:mm) + 2 hours (grace period)
+    const currentTime = new Date();
+    const currentHours = currentTime.getHours();
+    const currentMinutes = currentTime.getMinutes();
+
+    const closingHours = Number(closingTime?.closingTime!.split(':')[0]) + 2;
+    const closingMinutes = Number(closingTime?.closingTime!.split(':')[1]);
+
+    if (
+      currentHours < closingHours ||
+      (currentHours === closingHours && currentMinutes < closingMinutes)
+    ) {
+      console.log('Children absence handler: Not past closing time yet.');
+      return {
+        message: `La gestion des absences n'est disponible qu'après ${closingTime?.closingTime}`,
+        status: 403,
+        success: false,
+      };
+    }
+
+    try {
+      const attendanceRecords = await this.prismaService.attendance.findMany({
+        where: {
+          entityType: 'CHILD',
+        },
+      });
+
+      const now = new Date();
+      now.setHours(now.getHours() + 1);
+
+      // update all pending attendance records to absent (if no check-in)
+      attendanceRecords.forEach(async (record) => {
+        if (record.checkInTime === null) {
+          await this.prismaService.attendance.update({
+            where: { id: record.id },
+            data: {
+              status: 'ABSENT',
+            },
+          });
+        } else {
+          console.log(record.id);
+          await this.prismaService.attendance.update({
+            where: { id: record.id },
+            data: {
+              checkOutTime: now,
+            },
+          });
+        }
+      });
+
+      return {
+        message: 'Absences récupérées avec succès',
+        status: 200,
+        success: true,
+        attendances: attendanceRecords,
+      };
+    } catch (error) {
+      return {
+        message: error.message || 'Erreur lors de la récupération des absences',
         status: 500,
         success: false,
       };
