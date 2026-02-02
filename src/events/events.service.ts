@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateEventDto,
   EventDtoGet,
+  EventSoonestBirthdaysDto,
   GetEventsDto,
   HandleEventMediaDto,
   ReorderEventMediaDto,
@@ -139,7 +140,6 @@ export class EventsService {
         },
       });
 
-
       // Bithday case
       const childClassroomMap = new Map<number, string | null>();
 
@@ -187,7 +187,7 @@ export class EventsService {
             : null,
       }));
 
-      const totalEvents = await this.prismaService.event.count();
+      const totalEvents = await this.prismaService.event.findMany();
 
       return {
         message: 'Events retrieved successfully',
@@ -195,22 +195,22 @@ export class EventsService {
         pagination: {
           page: page,
           perPage: perPage || 'All',
-          pages: perPage ? Math.ceil(eventsPeriods.length / perPage) : 1,
+          pages: perPage ? Math.ceil(totalEvents.length / perPage) : 1,
         },
         metaData: {
-          total: totalEvents,
+          total: totalEvents.length,
           stats: {
-            total: eventsPeriods.length,
-            excursions: eventsPeriods.filter(
+            total: totalEvents.length,
+            excursions: totalEvents.filter(
               (event) => event.eventType === 'FIELD_TRIP',
             ).length,
-            special_days: eventsPeriods.filter(
-              (event) => event.eventType === 'SPECIAL_DAY',
+            special_days: totalEvents.filter(
+              (event) => event.eventType === 'CELEBRATION',
             ).length,
-            spectacles: eventsPeriods.filter(
-              (event) => event.eventType === 'SPECTACLE',
+            spectacles: totalEvents.filter(
+              (event) => event.eventType === 'PERFORMANCE',
             ).length,
-            anniversaires: eventsPeriods.filter(
+            anniversaires: totalEvents.filter(
               (event) => event.eventType === 'BIRTHDAY',
             ).length,
           },
@@ -224,6 +224,100 @@ export class EventsService {
         error: error.message,
         statusCode: 500,
         success: false,
+      };
+    }
+  }
+
+  // service : done
+  async getUpcomingBirthdays(query: EventSoonestBirthdaysDto) {
+    try {
+      const today = new Date();
+      const dateRange = new Date();
+      dateRange.setDate(
+        today.getDate() + Number(query.range ? query.range * 30 : 30),
+      );
+
+      const currentYear = today.getFullYear();
+
+      const upcomingBirthdays = await this.prismaService.children.findMany({
+        select: {
+          id: true,
+          full_name: true,
+          birth_date: true,
+          profile_picture: true,
+          gender: true,
+        },
+        orderBy: {
+          birth_date: 'asc',
+        },
+      });
+
+      const filteredBirthdays = upcomingBirthdays.filter((child) => {
+        const birthDate = new Date(child.birth_date);
+
+        const thisYearBirthday = new Date(
+          currentYear,
+          birthDate.getMonth(),
+          birthDate.getDate(),
+        );
+
+        if (thisYearBirthday < today) {
+          thisYearBirthday.setFullYear(currentYear + 1);
+        }
+        const isUpcoming =
+          thisYearBirthday >= today && thisYearBirthday <= dateRange;
+
+        return isUpcoming;
+      });
+
+      const limitedBirthdays = filteredBirthdays.slice(
+        0,
+        query.limit ? Number(query.limit) : 10,
+      );
+
+      const childClassroomMap = new Map<number, string | null>();
+      for (const child of limitedBirthdays) {
+        try {
+          const childWithClassroom =
+            await this.prismaService.assignment.findFirst({
+              where: { childId: child.id },
+              include: {
+                classroom: {
+                  select: {
+                    category: true,
+                  },
+                },
+              },
+            });
+
+          if (childWithClassroom) {
+            childClassroomMap.set(
+              child.id,
+              childWithClassroom.classroom.category,
+            );
+          }
+        } catch (error) {
+          console.error(
+            `Error fetching classroom for child ${child.id}:`,
+            error,
+          );
+        }
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Upcoming birthdays retrieved successfully',
+        birthdays: limitedBirthdays.map((child) => ({
+          ...child,
+          category: childClassroomMap.get(child.id) || null,
+        })),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
       };
     }
   }

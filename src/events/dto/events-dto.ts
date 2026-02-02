@@ -25,6 +25,16 @@ export class GetEventsDto {
   isPublished?: string;
 }
 
+export class EventSoonestBirthdaysDto {
+  @IsOptional()
+  @IsNumberString()
+  limit?: number;
+
+  @IsOptional()
+  @IsNumberString()
+  range?: number;
+}
+
 export class EventDtoGet {
   @IsString()
   perPage: string;
@@ -61,8 +71,8 @@ export class CreateEventDto {
   location: string;
 
   @IsOptional()
-  @IsNumberString()
-  childId?: number;
+  @IsString()
+  childId?: string | undefined;
 }
 
 export class UpdateEventDto {

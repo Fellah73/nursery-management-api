@@ -13,6 +13,7 @@ import {
 import {
   CreateEventDto,
   EventDtoGet,
+  EventSoonestBirthdaysDto,
   GetEventsDto,
   HandleEventMediaDto,
   ReorderEventMediaDto,
@@ -48,9 +49,21 @@ export class EventsController {
   // guards : done , service : done
   @Get('period')
   @UseGuards(EventsAuthGuard)
-  getEventsPeriod(@Query('admin_id') admin_id: string,
-   @Query() query: EventDtoGet) {
+  getEventsPeriod(
+    @Query('admin_id') admin_id: string,
+    @Query() query: EventDtoGet,
+  ) {
     return this.eventsService.getEventsPeriod(query);
+  }
+
+  // guards : done , service : done
+  @Get('upcoming-birthdays')
+  @UseGuards(EventsAuthGuard)
+  getUpcomingBirthdays(
+    @Query('admin_id') admin_id: string,
+    @Query() query: EventSoonestBirthdaysDto,
+  ) {
+    return this.eventsService.getUpcomingBirthdays(query);
   }
 
   // guards : done , service : done
@@ -60,6 +73,7 @@ export class EventsController {
     return this.eventsService.getEvent(id);
   }
 
+  
   // guards : done , service : done
   @Patch(':id')
   @UseGuards(EventsAuthGuard, EventsGuard)
