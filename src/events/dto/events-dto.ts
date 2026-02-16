@@ -25,6 +25,20 @@ export class GetEventsDto {
   isPublished?: string;
 }
 
+export class MonthlyEventDtoGet {
+  @IsNumberString()
+  @Matches(/^(1[0-2]|[1-9])$/, {
+    message: 'Month must be between 1 and 12',
+  })
+  month?: number;
+
+  @IsNumberString()
+  @Matches(/^20\d{2}$/, {
+    message: 'Year must be in format 20XX',
+  })
+  year?: number;
+}
+
 export class EventSoonestBirthdaysDto {
   @IsOptional()
   @IsNumberString()

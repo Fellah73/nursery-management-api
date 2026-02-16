@@ -16,6 +16,7 @@ import {
   EventSoonestBirthdaysDto,
   GetEventsDto,
   HandleEventMediaDto,
+  MonthlyEventDtoGet,
   ReorderEventMediaDto,
   UpdateEventDto,
 } from './dto/events-dto';
@@ -56,6 +57,16 @@ export class EventsController {
     return this.eventsService.getEventsPeriod(query);
   }
 
+  // guards : testing , service : testing
+  @Get('monthly')
+  @UseGuards(EventsAuthGuard)
+  getMonthlyEvents(
+    @Query('admin_id') admin_id: string,
+    @Query() query: MonthlyEventDtoGet,
+  ) {
+    return this.eventsService.getMonthlyEvents(query);
+  }
+
   // guards : done , service : done
   @Get('upcoming-birthdays')
   @UseGuards(EventsAuthGuard)
@@ -73,7 +84,6 @@ export class EventsController {
     return this.eventsService.getEvent(id);
   }
 
-  
   // guards : done , service : done
   @Patch(':id')
   @UseGuards(EventsAuthGuard, EventsGuard)

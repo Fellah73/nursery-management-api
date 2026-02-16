@@ -6,6 +6,7 @@ import {
   EventSoonestBirthdaysDto,
   GetEventsDto,
   HandleEventMediaDto,
+  MonthlyEventDtoGet,
   ReorderEventMediaDto,
   UpdateEventDto,
 } from './dto/events-dto';
@@ -221,9 +222,66 @@ export class EventsService {
     } catch (error) {
       return {
         message: 'An error occurred while retrieving schedule periods',
-        error: error.message,
+        error:
+          error instanceof Error ? error.message : 'Unknown error occurred',
         statusCode: 500,
         success: false,
+      };
+    }
+  }
+
+  // service : testing
+  async getMonthlyEvents(@Query() query: MonthlyEventDtoGet) {
+    try {
+      const month = query.month || new Date().getMonth() + 1;
+      const year = query.year || new Date().getFullYear();
+
+      const events = await this.prismaService.event.findMany({
+        where: {
+          eventDate: {
+            gte: new Date(year, month - 1, 1),
+            lt: new Date(year, month, 1),
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          eventType: true,
+          eventDate: true,
+          isPublished: true,
+          location: true,
+          child: {
+            select: {
+              id: true,
+              full_name: true,
+              gender: true,
+              profile_picture: true,
+              birth_date: true,
+            },
+          },
+        },
+      });
+
+      if (!events || events.length === 0) {
+        return {
+          success: true,
+          statusCode: 404,
+          message: 'No events found for the specified month and year',
+        };
+      }
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Monthly events retrieved successfully',
+        events,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
       };
     }
   }
@@ -644,7 +702,8 @@ export class EventsService {
           message: 'mediaUrl array cannot be empty',
         };
       }
-
+      {
+        /*
       let availableEventMedia = await this.prismaService.eventMedia.findMany({
         where: { eventId: Number(id) },
         select: {
@@ -684,9 +743,8 @@ export class EventsService {
           lastDisplayOrderIndex++;
           updatedEventMedia++;
         }
+      }*/
       }
-
-      console.log('Available Event Media after update:', availableEventMedia);
 
       // Delete all existing media for the event
       await this.prismaService.eventMedia.deleteMany({
@@ -695,10 +753,10 @@ export class EventsService {
 
       // Create new media records
       const createdEventMedia = await this.prismaService.eventMedia.createMany({
-        data: availableEventMedia.map((media) => ({
+        data: body.media.map((media, index) => ({
           eventId: Number(id),
-          mediaUrl: media.mediaUrl,
-          displayOrder: media.displayOrder,
+          mediaUrl: media,
+          displayOrder: 1 + index,
         })),
       });
 
@@ -713,7 +771,7 @@ export class EventsService {
       return {
         success: true,
         statusCode: 200,
-        message: `${updatedEventMedia} updated media items added to event successfully`,
+        message: `${createdEventMedia.count} updated media items added to event successfully`,
       };
     } catch (error) {
       return {
