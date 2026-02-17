@@ -78,6 +78,22 @@ export class SettingsService {
     return rest;
   }
 
+  private getFormattedProfile(profile: any) {
+    const {
+      id,
+      createdAt,
+      updatedAt,
+      facebook,
+      twitter,
+      instagram,
+      linkedin,
+      youtube,
+      website,
+      ...rest
+    } = profile;
+    return rest;
+  }
+
   // service : done
   async getSettings() {
     try {
@@ -106,7 +122,7 @@ export class SettingsService {
         success: false,
         status: 'error',
         message: 'Failed to retrieve settings',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         statusCode: 500,
       };
     }
@@ -143,7 +159,7 @@ export class SettingsService {
         success: false,
         status: 'error',
         message: 'Failed to update settings',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         statusCode: 500,
       };
     }
@@ -155,9 +171,19 @@ export class SettingsService {
       // delete existing settings
       await this.prismaService.nurserySettings.deleteMany({});
 
+      let startTimes = this.getSlotsStartTimes(this.defaultSettings);
+
+      let time =
+        this.timeToMinutes(startTimes[startTimes.length - 1]) +
+        this.defaultSettings.slotDuration +
+        this.defaultSettings.slotInterval +
+        this.defaultSettings.snackDuration;
+
+      let closingTime = this.getFormattedStartTimes([time])[0];
+
       // create default settings
       const createdSettings = await this.prismaService.nurserySettings.create({
-        data: this.defaultSettings,
+        data: { ...this.defaultSettings, closingTime },
       });
 
       if (!createdSettings) {
@@ -165,16 +191,109 @@ export class SettingsService {
       }
 
       return {
-        status: 'success',
+        success: true,
         message: 'Settings reset to default successfully',
-        setting: this.getFormattedSettings(createdSettings),
+        settings: this.getFormattedSettings(createdSettings),
         statusCode: 200,
       };
     } catch (error) {
       return {
-        status: 'error',
+        success: false,
         message: 'Failed to reset settings',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        statusCode: 500,
+      };
+    }
+  }
+
+  // service : done
+  async getProfile() {
+    try {
+      const nurseryProfile = await this.prismaService.nurseryProfile.findFirst(
+        {},
+      );
+
+      if (!nurseryProfile) {
+        return {
+          success: false,
+          message: 'No profile found',
+          statusCode: 404,
+        };
+      }
+
+      const formattedProfile = this.getFormattedProfile(nurseryProfile);
+      const socialLinks = {
+        facebook: formattedProfile.facebookLink || null,
+        twitter: formattedProfile.twitterLink || null,
+        instagram: formattedProfile.instagramLink || null,
+        linkedin: formattedProfile.linkedinLink || null,
+        youtube: formattedProfile.youtubeLink || null,
+        website: formattedProfile.websiteLink || null,
+      };
+
+      return {
+        success: true,
+        message: 'Profile retrieved successfully',
+        profile: {
+          ...formattedProfile,
+          socialLinks,
+        },
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve profile',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        statusCode: 500,
+      };
+    }
+  }
+
+  // service : testing
+  async updateProfile(@Body() body: any) {
+    try {
+      const existingProfile = await this.prismaService.nurseryProfile.findFirst(
+        {},
+      );
+
+      if (!existingProfile) {
+        return {
+          success: false,
+          message: 'No profile found to update',
+          statusCode: 404,
+        };
+      }
+
+      const updatedProfile = await this.prismaService.nurseryProfile.update({
+        where: { id: existingProfile.id },
+        data: {
+          name: body.name || existingProfile.name,
+          slogan: body.slogan || existingProfile.slogan,
+          logo: body.logo || existingProfile.logo,
+          phone: body.phone || existingProfile.phone,
+          phone2: body.phone2 || existingProfile.phone2,
+          email: body.email || existingProfile.email,
+          facebook: body.socialLinks?.facebook || existingProfile.facebook,
+          twitter: body.socialLinks?.twitter || existingProfile.twitter,
+          instagram: body.socialLinks?.instagram || existingProfile.instagram,
+          linkedin: body.socialLinks?.linkedin || existingProfile.linkedin,
+          youtube: body.socialLinks?.youtube || existingProfile.youtube,
+          website: body.socialLinks?.website || existingProfile.website,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Profile updated successfully',
+        profile: updatedProfile,
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update profile',
+        error: error instanceof Error ? error.message : 'Unknown error',
         statusCode: 500,
       };
     }

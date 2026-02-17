@@ -4,11 +4,10 @@ import {
   Delete,
   Get,
   Param,
-  Patch,
   Post,
   Put,
   Query,
-  UseGuards,
+  UseGuards
 } from '@nestjs/common';
 import {
   CreateEventDto,
@@ -57,7 +56,7 @@ export class EventsController {
     return this.eventsService.getEventsPeriod(query);
   }
 
-  // guards : testing , service : testing
+  // guards : done , service : done
   @Get('monthly')
   @UseGuards(EventsAuthGuard)
   getMonthlyEvents(
@@ -85,7 +84,7 @@ export class EventsController {
   }
 
   // guards : done , service : done
-  @Patch(':id')
+  @Put(':id')
   @UseGuards(EventsAuthGuard, EventsGuard)
   updateEvent(
     @Query('admin_id') admin_id: string,

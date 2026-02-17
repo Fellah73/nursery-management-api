@@ -230,7 +230,7 @@ export class EventsService {
     }
   }
 
-  // service : testing
+  // service : done
   async getMonthlyEvents(@Query() query: MonthlyEventDtoGet) {
     try {
       const month = query.month || new Date().getMonth() + 1;
@@ -470,10 +470,12 @@ export class EventsService {
       const event = await this.prismaService.event.findUnique({
         where: { id: Number(id) },
         select: {
+          id: true,
           title: true,
           description: true,
           eventType: true,
           eventDate: true,
+          location: true,
           isPublished: true,
           child: {
             select: {

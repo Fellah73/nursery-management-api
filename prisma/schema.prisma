@@ -312,6 +312,32 @@ model EventMedia {
   @@map("event_media")
 }
 
+model NurseryProfile {
+  id Int @id @default(autoincrement())
+
+  name        String  @db.VarChar(100)
+  slogan      String? @db.VarChar(200)
+  logo        String? @db.Text        
+  
+  address     String? @db.VarChar(255)
+  phone       String? @db.VarChar(20)
+  phone2      String? @db.VarChar(20)  
+  email       String? @db.VarChar(100)
+
+  facebook    String? @db.Text
+  instagram   String? @db.Text
+  twitter     String? @db.Text
+  linkedin    String? @db.Text
+  youtube     String? @db.Text
+  tiktok      String? @db.Text
+  website     String? @db.Text 
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("nursery_profile")
+}
+
 model NurserySettings {
   id Int @id @default(autoincrement())
 

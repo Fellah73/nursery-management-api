@@ -102,9 +102,6 @@ export class UpdateEventDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(['OTHER'], {
-    message: 'Invalid eventType, must be OTHER ',
-  })
   eventType?: string;
 
   @IsOptional()
