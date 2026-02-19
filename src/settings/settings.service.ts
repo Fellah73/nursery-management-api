@@ -223,12 +223,13 @@ export class SettingsService {
 
       const formattedProfile = this.getFormattedProfile(nurseryProfile);
       const socialLinks = {
-        facebook: formattedProfile.facebookLink || null,
-        twitter: formattedProfile.twitterLink || null,
-        instagram: formattedProfile.instagramLink || null,
-        linkedin: formattedProfile.linkedinLink || null,
-        youtube: formattedProfile.youtubeLink || null,
-        website: formattedProfile.websiteLink || null,
+        facebook: nurseryProfile.facebook || null,
+        twitter: nurseryProfile.twitter || null,
+        instagram: nurseryProfile.instagram || null,
+        linkedin: nurseryProfile.linkedin || null,
+        youtube: nurseryProfile.youtube || null,
+        website: nurseryProfile.website || null,
+        tiktok : nurseryProfile.tiktok || null,
       };
 
       return {
