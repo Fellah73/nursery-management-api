@@ -530,7 +530,7 @@ export class MenuService {
         );
 
         if (!newPeriod.success) {
-          console.log('Error creating new menu period:', newPeriod.message);
+          console.error('Error creating new menu period:', newPeriod.message);
         }
 
         newPeriodId = await this.prismaService.menuPeriod
@@ -738,7 +738,6 @@ export class MenuService {
   }
 
   async handleMenusActivation() {
-    console.log('Handling menus activation and cleanup...');
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0); // Set to start of day for date-only comparison
 

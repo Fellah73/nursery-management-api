@@ -468,8 +468,6 @@ export class AttendanceService {
         };
       }
 
-      console.log(attendance);
-
       if (attendance.checkOutTime) {
         return {
           message:
@@ -491,8 +489,6 @@ export class AttendanceService {
           minutes,
         ),
       );
-
-      console.log('i am here');
 
       // update attendance record
       await this.prismaService.attendance.update({
@@ -568,8 +564,6 @@ export class AttendanceService {
 
   // staff absence handler
   async staffAbsenceHandler() {
-    console.log('Running staff absence handler...');
-
     const closingTime = await this.prismaService.nurserySettings.findFirst({});
 
     // compare current time with closing time (hh:mm) + 2 hours (grace period)
@@ -584,7 +578,6 @@ export class AttendanceService {
       currentHours < closingHours ||
       (currentHours === closingHours && currentMinutes < closingMinutes)
     ) {
-      console.log('Staff absence handler: Not past closing time yet.');
       return {
         message: `La gestion des absences n'est disponible qu'après ${closingTime?.closingTime}`,
         status: 403,
@@ -612,7 +605,6 @@ export class AttendanceService {
             },
           });
         } else {
-          console.log(record.id);
           await this.prismaService.attendance.update({
             where: { id: record.id },
             data: {
@@ -809,8 +801,6 @@ export class AttendanceService {
 
   // children absence handler
   async ChildrenAbsenceHandler() {
-    console.log('Running children absence handler...');
-
     const closingTime = await this.prismaService.nurserySettings.findFirst({});
 
     // compare current time with closing time (hh:mm) + 2 hours (grace period)
@@ -825,7 +815,6 @@ export class AttendanceService {
       currentHours < closingHours ||
       (currentHours === closingHours && currentMinutes < closingMinutes)
     ) {
-      console.log('Children absence handler: Not past closing time yet.');
       return {
         message: `La gestion des absences n'est disponible qu'après ${closingTime?.closingTime}`,
         status: 403,
@@ -853,7 +842,6 @@ export class AttendanceService {
             },
           });
         } else {
-          console.log(record.id);
           await this.prismaService.attendance.update({
             where: { id: record.id },
             data: {
