@@ -5,22 +5,23 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UserRole } from '../enums/user-role.enum';
 
 @Injectable()
-export class SettingsAuthGuard implements CanActivate {
+export class GlobalAuthGuard implements CanActivate {
   constructor(
     private prismaService: PrismaService,
     private jwtService: JwtService,
+    private reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
 
     const token = request.cookies?.authToken;
-
-    console.log('Token récupéré du cookie:', token);
 
     if (!token) {
       throw new UnauthorizedException('Token manquant');
@@ -39,8 +40,18 @@ export class SettingsAuthGuard implements CanActivate {
         throw new ForbiddenException('Utilisateur non trouvé');
       }
 
-      if (user.role !== 'SUPER_ADMIN') {
-        throw new ForbiddenException('Accès réservé aux administrateurs');
+      // 4. Vérifier les rôles requis
+      const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+        'roles',
+        [context.getHandler(), context.getClass()],
+      );
+
+      if (requiredRoles && requiredRoles.length > 0) {
+        if (!requiredRoles.includes(user.role as UserRole)) {
+          throw new ForbiddenException(
+            `Rôle insuffisant. Rôles requis: ${requiredRoles.join(', ')}`,
+          );
+        }
       }
 
       //Attacher l'utilisateur à la requête (accessible dans le controller)
