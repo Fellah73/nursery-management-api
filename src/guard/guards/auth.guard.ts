@@ -29,7 +29,7 @@ export class GlobalAuthGuard implements CanActivate {
 
     try {
       const payload = this.jwtService.verify(token, {
-        secret: process.env.AUTH_SECRET_KEY || 'your-secret-key',
+        secret: process.env.AUTH_SECRET_KEY,
       });
 
       const user = await this.prismaService.user.findUnique({
@@ -39,6 +39,8 @@ export class GlobalAuthGuard implements CanActivate {
       if (!user) {
         throw new ForbiddenException('Utilisateur non trouvé');
       }
+
+      console.log('Utilisateur authentifié:', user.email, 'Rôle:', user.role);
 
       // 4. Vérifier les rôles requis
       const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
