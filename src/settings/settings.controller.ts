@@ -13,6 +13,7 @@ export class SettingsController {
 
   // guards : done , service : done
   @Get()
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   getSettings() {
     return this.settingsService.getSettings();
   }
@@ -25,6 +26,7 @@ export class SettingsController {
 
   // guards : done , service : done
   @Get('profile')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   getProfile() {
     return this.settingsService.getProfile();
   }

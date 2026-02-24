@@ -9,76 +9,61 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AssignmentsService } from './assignments.service';
 import { Category } from 'generated/prisma';
+import { Roles } from 'src/guard/decorators/roles.decorator';
+import { UserRole } from 'src/guard/enums/user-role.enum';
+import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
+import { AssignmentsService } from './assignments.service';
 import { CreateAssignmentsDto } from './dto/assignments-dto';
-import { AssignmentsAuthGuard } from './gurads/auth/auth.gard';
-import { AssignmentsClassRoomGuard } from './gurads/classroom/classroom.gurad';
-import { AssignmentsGuard } from './gurads/assignment/assignment.guard';
+import { AssignmentsGuard } from './gurads/assignment.guard';
+import { AssignmentsClassRoomGuard } from './gurads/classroom.gurad';
 
 @Controller('assignments')
+@UseGuards(GlobalAuthGuard)
+@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
 export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
 
   // guards : done , service : done
   @Post()
-  @UseGuards(AssignmentsAuthGuard, AssignmentsClassRoomGuard)
-  createAssignment(
-    @Query('admin_id') admin_id: string,
-    @Body() body: CreateAssignmentsDto,
-  ) {
+  @UseGuards(AssignmentsClassRoomGuard)
+  createAssignment(@Body() body: CreateAssignmentsDto) {
     return this.assignmentsService.createAssignment(body);
   }
 
   // guards : done , service : done
   @Put(':id')
-  @UseGuards(AssignmentsAuthGuard, AssignmentsClassRoomGuard, AssignmentsGuard)
+  @UseGuards(AssignmentsClassRoomGuard, AssignmentsGuard)
   updateAssignment(
     @Param('id') id: string,
-    @Query('admin_id') admin_id: string,
     @Body() body: { classroomId: string },
   ) {
     return this.assignmentsService.updateAssignment(id, body);
   }
 
-
   // guards : done , service : done
   @Delete(':id')
-  @UseGuards(AssignmentsAuthGuard,AssignmentsGuard)
-  deleteAssignment(
-    @Param('id') id: string,
-    @Query('admin_id') admin_id: string,
-  ) {
+  @UseGuards(AssignmentsGuard)
+  deleteAssignment(@Param('id') id: string) {
     return this.assignmentsService.deleteAssignment(id);
   }
 
   // guards : done , service : done
   @Get('/children/not-assigned')
-  @UseGuards(AssignmentsAuthGuard)
-  getChildrenNotAssigned(
-    @Query('admin_id') admin_id: string,
-    @Query('category') category?: Category,
-  ) {
+  getChildrenNotAssigned(@Query('category') category?: Category) {
     return this.assignmentsService.getChildrenNotAssigned(category);
   }
 
   // guards : done , service : done
   @Get('/classes/available')
-  @UseGuards(AssignmentsAuthGuard)
-  getAvailableClasses(
-    @Query('admin_id') admin_id: string,
-    @Query('class_id') class_id?: string,
-  ) {
+  getAvailableClasses(@Query('class_id') class_id?: string) {
     return this.assignmentsService.getAvailableClasses(class_id);
   }
 
   // guards : done , service : done
   @Get('/classes/:classroomId')
-  @UseGuards(AssignmentsAuthGuard,AssignmentsClassRoomGuard)
-  findAssignmentsByClass(
-    @Param('classroomId') classroomId: string,
-    @Query('admin_id') admin_id: string,
-  ) {
+  @UseGuards(AssignmentsClassRoomGuard)
+  findAssignmentsByClass(@Param('classroomId') classroomId: string) {
     return this.assignmentsService.getAssignmentsByClass(Number(classroomId));
   }
 }

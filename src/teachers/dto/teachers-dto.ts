@@ -8,10 +8,7 @@ import {
 
 export class TeacherDtoGet {
   @IsNumberString()
-  admin_id: number;
-
-  @IsNumberString()
-  perPage: string;
+  perPage!: string;
 
   @IsOptional()
   @IsNumberString()
@@ -28,7 +25,7 @@ export class TeacherDtoUpdate {
     message:
       'Le mot de passe doit contenir au moins 8 caractères, dont au moins une majuscule, une minuscule et un chiffre',
   })
-  password: string;
+  password!: string;
 
   @IsOptional()
   @Matches(/^(5|6|7)[0-9]{8}$/, {

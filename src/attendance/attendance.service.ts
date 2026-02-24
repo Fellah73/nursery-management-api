@@ -73,7 +73,7 @@ export class AttendanceService {
 
   // get all attendance records for staff
   // service : done
-  async getStaffAttendanceRecords(admin_id: number) {
+  async getStaffAttendanceRecords() {
     // init attendance records if not already done
     await this.initAllAttendanceForToday();
 
@@ -135,7 +135,6 @@ export class AttendanceService {
   // get all attendance records for children paged by classroom
   // service : done
   async getGlobalChildrenAttendanceRecords(
-    admin_id: number,
     classroom_id: number,
   ) {
     // init attendance records if not already done

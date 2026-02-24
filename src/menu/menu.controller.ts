@@ -10,14 +10,16 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Category } from 'generated/prisma';
+import { Roles } from 'src/guard/decorators/roles.decorator';
+import { UserRole } from 'src/guard/enums/user-role.enum';
+import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
 import {
   CreateMenuMealsDto,
   CreateMenuPeriodDto,
   MealSlotDto,
   UpdateMenuPeriodDto,
 } from './dto/menu-dto';
-import { AuthGuard } from './guards/auth/auth.guard';
-import { MenuPeriodsGuard } from './guards/period/period.guard';
+import { MenuPeriodsGuard } from './guards/period.guard';
 import { MenuService } from './menu.service';
 import { ValidateMealsPipe } from './pipes/validate-menu-meals';
 import {
@@ -26,22 +28,21 @@ import {
 } from './pipes/validate-menu-period';
 
 @Controller('menu')
+@UseGuards(GlobalAuthGuard)
+@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
 export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
   // guards : done , service : done , handleCall : done
   @Get()
-  @UseGuards(AuthGuard)
-  getMenuPeriods(@Query('admin_id') admin_id: string) {
+  getMenuPeriods() {
     return this.menuService.getMenuPeriods();
   }
 
   // guards : done , service : done , pipe : done , handleCall : done
   @Post()
-  @UseGuards(AuthGuard)
   createMenuPeriod(
     @Body(ValidateMenuPeriodCreationPipe) body: CreateMenuPeriodDto,
-    @Query('admin_id') admin_id: string,
     @Query('type') type: string,
   ) {
     return this.menuService.createMenuPeriod(body, type);
@@ -49,34 +50,27 @@ export class MenuController {
 
   // guards : done , service : done , handleCall : done
   @Get('/programme')
-  @UseGuards(AuthGuard)
-  getProgrammedMenuPeriods(@Query('admin_id') admin_id: string) {
+  getProgrammedMenuPeriods() {
     return this.menuService.getProgrammedMenuPeriods();
   }
 
   // guards : done , service : done , handleCall : done
   @Get('/meals')
-  @UseGuards(AuthGuard)
-  getMenuMeals(
-    @Query('admin_id') admin_id: string,
-    @Query('category') category: Category,
-  ) {
+  getMenuMeals(@Query('category') category: Category) {
     return this.menuService.getMenuMeals(category);
   }
 
   // guards : done , service : done
   @Get('/meals/times')
-  @UseGuards(AuthGuard)
-  getMenuMealTimes(@Query('admin_id') admin_id: string) {
+  getMenuMealTimes() {
     return this.menuService.getMenuMealTimes();
   }
 
   // guards : done , pipe : done , service : done , handleCall : done
   @Patch('/:periodId')
-  @UseGuards(AuthGuard, MenuPeriodsGuard)
+  @UseGuards(MenuPeriodsGuard)
   updateMenuPeriod(
     @Body(ValidateMenuPeriodUpdatePipe) body: UpdateMenuPeriodDto,
-    @Query('admin_id') admin_id: string,
     @Param('periodId') periodId: string,
   ) {
     return this.menuService.updateMenuPeriod(body, periodId);
@@ -84,31 +78,24 @@ export class MenuController {
 
   // guards : done , service : done , handleCall : done
   @Get('meals/:periodId')
-  @UseGuards(AuthGuard, MenuPeriodsGuard)
-  getMenuMealsByPeriod(
-    @Query('admin_id') admin_id: string,
-    @Param('periodId') periodId: string,
-  ) {
+  @UseGuards(MenuPeriodsGuard)
+  getMenuMealsByPeriod(@Param('periodId') periodId: string) {
     return this.menuService.getMenuMealsByPeriod(periodId);
   }
 
   // guards : done , service : done , handleCall : done
   @Delete('/period/:periodId')
-  @UseGuards(AuthGuard, MenuPeriodsGuard)
-  deleteMenuPeriod(
-    @Query('admin_id') admin_id: string,
-    @Param('periodId') periodId: string,
-  ) {
+  @UseGuards(MenuPeriodsGuard)
+  deleteMenuPeriod(@Param('periodId') periodId: string) {
     return this.menuService.deleteMenuPeriod(periodId);
   }
 
   // guards : done , service : done , pipe : done , handleCall : done
   @Post('/period/:periodId/meals/bulk')
-  @UseGuards(AuthGuard, MenuPeriodsGuard)
+  @UseGuards(MenuPeriodsGuard)
   createMenusBulk(
     @Body(ValidateMealsPipe<CreateMenuMealsDto, MealSlotDto>)
     body: CreateMenuMealsDto,
-    @Query('admin_id') admin_id: string,
     @Param('periodId') periodId: string,
   ) {
     return this.menuService.createMenusBulk(body, periodId);
@@ -116,11 +103,10 @@ export class MenuController {
 
   // guards : done , service : done , pipe : done , handleCall : done
   @Patch('/period/:periodId/meals/bulk')
-  @UseGuards(AuthGuard, MenuPeriodsGuard)
+  @UseGuards(MenuPeriodsGuard)
   updateMenusBulk(
     @Body(ValidateMealsPipe<CreateMenuMealsDto, MealSlotDto>)
     body: CreateMenuMealsDto,
-    @Query('admin_id') admin_id: string,
     @Param('periodId') periodId: string,
   ) {
     return this.menuService.updateMenusBulk(body, periodId);

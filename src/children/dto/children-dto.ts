@@ -101,11 +101,8 @@ export class CreateChildDto {
 }
 
 export class ChildrenDtoGet {
-  @IsNumberString()
-  admin_id: number;
-
   @IsString()
-  perPage: string;
+  perPage!: string;
 
   @IsOptional()
   @IsNumberString()

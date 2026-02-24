@@ -1,35 +1,31 @@
 import {
   IsEnum,
   IsNumber,
-  IsNumberString,
   IsOptional,
-  IsString,
+  IsString
 } from 'class-validator';
 import { Category } from 'generated/prisma';
 
 export class CreateClassDto {
   @IsString()
-  name: string;
+  name!: string;
 
   @IsEnum(Category, {
     message: 'category must be BEBE ,PETIT ,MOYEN and GRAND',
   })
-  category: Category;
+  category!: Category;
 
   @IsNumber()
-  capacity: number;
+  capacity!: number;
 
   @IsNumber()
-  teacherId: number;
+  teacherId!: number;
 }
 
 export class ClassesDtoGet {
-  @IsNumberString()
-  admin_id: number;
-
   @IsOptional()
   @IsString()
-  perPage: string;
+  perPage?: string;
 
   @IsOptional()
   @IsString()

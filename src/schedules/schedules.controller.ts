@@ -9,6 +9,9 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Roles } from 'src/guard/decorators/roles.decorator';
+import { UserRole } from 'src/guard/enums/user-role.enum';
+import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
 import {
   CreateSchedulePeriodDto,
   CreateScheduleSlotsDto,
@@ -20,9 +23,8 @@ import {
   UpdateScheduleSlotDto,
   UpdateSlotDto,
 } from './dto/schedules-dto';
-import { SchedulesAuthGuard } from './guards/auth/auth.guard';
-import { SchedulesClassroomsGuard } from './guards/services/classroom.guard';
-import { SchedulesPeriodGuard } from './guards/services/period.guard';
+import { SchedulesClassroomsGuard } from './guards/classroom.guard';
+import { SchedulesPeriodGuard } from './guards/period.guard';
 import {
   ValidateSchedulePeriodCreationPipe,
   ValidateSchedulePeriodUpdatePipe,
@@ -31,6 +33,8 @@ import { ValidateSlotsPipe } from './pipes/validate-slots';
 import { SchedulesService } from './schedules.service';
 
 @Controller('schedules')
+@UseGuards(GlobalAuthGuard)
+@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
 export class SchedulesController {
   constructor(private readonly schedulesService: SchedulesService) {}
 
@@ -38,7 +42,6 @@ export class SchedulesController {
 
   // guards : done , service : done , handleCall : done
   @Get('/period')
-  @UseGuards(SchedulesAuthGuard)
   async getGlobalSchedulePeriod(
     @Query() query: ScheduleDtoGet,
     @Query('type') type: string,
@@ -48,18 +51,14 @@ export class SchedulesController {
 
   // guards : done , service : done , handleCall : done
   @Get('/classroom/unscheduled')
-  @UseGuards(SchedulesAuthGuard)
-  async getClassroomsWithoutSchedule(@Query('admin_id') adminId: string) {
+  async getClassroomsWithoutSchedule() {
     return this.schedulesService.getClassroomsWithoutSchedule();
   }
 
   // guards : done , service : done , handleCall : done
   @Get('period/:periodId')
-  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
-  async getSchedulePeriodById(
-    @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
-  ) {
+  @UseGuards(SchedulesPeriodGuard)
+  async getSchedulePeriodById(@Param('periodId') periodId: string) {
     return this.schedulesService.getSchedulePeriodById(Number(periodId));
   }
 
@@ -67,27 +66,21 @@ export class SchedulesController {
 
   // guards : done , service : done , handleCall : done
   @Get('/classroom/:classroomId')
-  @UseGuards(SchedulesAuthGuard, SchedulesClassroomsGuard)
-  async getSchedulePeriods(
-    @Param('classroomId') classroomId: string,
-    @Query('admin_id') adminId: string,
-  ) {
+  @UseGuards(SchedulesClassroomsGuard)
+  async getSchedulePeriods(@Param('classroomId') classroomId: string) {
     return this.schedulesService.getSchedulesByClassroom(Number(classroomId));
   }
 
   // guards : done , service : done , handleCall : done
   @Get('/classroom/:classroomId/week')
-  @UseGuards(SchedulesAuthGuard, SchedulesClassroomsGuard)
-  async getWeeklySchedule(
-    @Param('classroomId') classroomId: string,
-    @Query('admin_id') adminId: string,
-  ) {
+  @UseGuards(SchedulesClassroomsGuard)
+  async getWeeklySchedule(@Param('classroomId') classroomId: string) {
     return this.schedulesService.getWeeklyCompleteSchedule(Number(classroomId));
   }
 
   // guards : done , pipe: done , service : done , handleCall : done
   @Post('/classroom/:classroomId/period')
-  @UseGuards(SchedulesAuthGuard, SchedulesClassroomsGuard)
+  @UseGuards(SchedulesClassroomsGuard)
   async createSchedulePeriod(
     @Param('classroomId') classroomId: string,
     @Query('type') type: string,
@@ -103,10 +96,9 @@ export class SchedulesController {
   // Period-level operations
   // guards : done , pipe : done , service : done , handleCall : done
   @Patch('classroom/period/:periodId')
-  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
+  @UseGuards(SchedulesPeriodGuard)
   async updateSchedulePeriod(
     @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
     @Body(ValidateSchedulePeriodUpdatePipe) body: UpdateSchedulePeriodDto,
   ) {
     return this.schedulesService.updateSchedulePeriod(Number(periodId), body);
@@ -114,21 +106,17 @@ export class SchedulesController {
 
   // guards : done , service : done , handleCall : done
   @Delete('classroom/period/:periodId')
-  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
-  async deleteSchedulePeriod(
-    @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
-  ) {
+  @UseGuards(SchedulesPeriodGuard)
+  async deleteSchedulePeriod(@Param('periodId') periodId: string) {
     return this.schedulesService.deleteSchedulePeriod(Number(periodId));
   }
 
   // Slot-level operations
   // guards : done , pipe : done , service : done , handleCall : done
   @Post('classroom/period/:periodId/slots/bulk')
-  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
+  @UseGuards(SchedulesPeriodGuard)
   async createScheduleSlots(
     @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
     @Body(ValidateSlotsPipe<CreateScheduleSlotsDto, SlotDto>)
     body: CreateScheduleSlotsDto,
   ) {
@@ -137,10 +125,9 @@ export class SchedulesController {
 
   // guards : done , pipe : done , service : done , handleCall : done
   @Patch('classroom/period/:periodId/slots/bulk')
-  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
+  @UseGuards(SchedulesPeriodGuard)
   async updateScheduleSlot(
     @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
     @Body(ValidateSlotsPipe<UpdateScheduleSlotDto, UpdateSlotDto>)
     body: UpdateScheduleSlotDto,
   ) {
@@ -149,10 +136,9 @@ export class SchedulesController {
 
   // guards : done , pipe : done , service : done , handleCall : done
   @Delete('classroom/period/:periodId/slots/bulk')
-  @UseGuards(SchedulesAuthGuard, SchedulesPeriodGuard)
+  @UseGuards(SchedulesPeriodGuard)
   async deleteScheduleSlot(
     @Param('periodId') periodId: string,
-    @Query('admin_id') adminId: string,
     @Body(ValidateSlotsPipe<DeleteScheduleSlotDto, DeleteSlotDto>)
     body: DeleteScheduleSlotDto,
   ) {

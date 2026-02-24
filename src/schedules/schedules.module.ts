@@ -1,8 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from 'src/prisma/prisma.module';
-import { SchedulesAuthGuard } from './guards/auth/auth.guard';
-import { SchedulesClassroomsGuard } from './guards/services/classroom.guard';
-import { SchedulesPeriodGuard } from './guards/services/period.guard';
+import { SchedulesClassroomsGuard } from './guards/classroom.guard';
+import { SchedulesPeriodGuard } from './guards/period.guard';
 import { SchedulesController } from './schedules.controller';
 import { SchedulesService } from './schedules.service';
 
@@ -10,7 +9,6 @@ import { SchedulesService } from './schedules.service';
   imports: [PrismaModule],
   providers: [
     SchedulesService,
-    SchedulesAuthGuard,
     SchedulesPeriodGuard,
     SchedulesClassroomsGuard,
   ],

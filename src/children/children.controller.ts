@@ -9,83 +9,69 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Category } from 'generated/prisma';
+import { Roles } from 'src/guard/decorators/roles.decorator';
+import { UserRole } from 'src/guard/enums/user-role.enum';
+import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
 import { ChildrenService } from './children.service';
 import { ChildrenDtoGet, CreateChildDto, updateType } from './dto/children-dto';
-import { ChildrenAuthGuard } from './gurads/auth/auth.guard';
-import { ChildrenGuard } from './gurads/child/child.guard';
+import { ChildrenGuard } from './gurads/child.guard';
 import { ValidateChildCreationPipe } from './pipe/validate-child';
 import { ValidateChildUpdatePipe } from './pipe/validate-update';
 
 @Controller('children')
+@UseGuards(GlobalAuthGuard)
+@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER)
 export class ChildrenController {
   constructor(private readonly childrenService: ChildrenService) {}
 
   // guards : done , service : done
   @Get()
-  @UseGuards(ChildrenAuthGuard)
   getChildren(@Query() query: ChildrenDtoGet) {
     return this.childrenService.getChildren(query);
   }
 
   // guards : done , pipe : done , service : done
   @Post()
-  @UseGuards(ChildrenAuthGuard)
-  createChild(
-    @Query('admin_id') admin_id: string,
-    @Body(ValidateChildCreationPipe) childData: CreateChildDto,
-  ) {
+  createChild(@Body(ValidateChildCreationPipe) childData: CreateChildDto) {
     return this.childrenService.createChild(childData);
   }
 
   // guards : done , service : done
   @Get('statistics')
-  @UseGuards(ChildrenAuthGuard)
-  getChildrenStatistics(@Query('admin_id') admin_id: string) {
+  getChildrenStatistics() {
     return this.childrenService.getChildrenStatistics();
   }
 
   // guards : done , service : done
   @Get('allergies')
-  @UseGuards(ChildrenAuthGuard)
-  getAllergies(
-    @Query('admin_id') admin_id: string,
-    @Query('category') category: Category,
-  ) {
+  getAllergies(@Query('category') category: Category) {
     return this.childrenService.getAllergies(category);
   }
 
   // guards : done , service : done
   @Get('search')
-  @UseGuards(ChildrenAuthGuard)
-  searchChildren(
-    @Query('admin_id') admin_id: string,
-    @Query('name') name: string,
-  ) {
+  searchChildren(@Query('name') name: string) {
     return this.childrenService.searchChildren(name);
   }
 
   // guards : done , service : done
   @Get(':id')
-  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
-  getChildById(@Query('admin_id') admin_id: string, @Param('id') id: number) {
+  @UseGuards(ChildrenGuard)
+  getChildById(@Param('id') id: number) {
     return this.childrenService.getChildById(id);
   }
 
   // guards : done , service : done
   @Get(':id/medical-info')
-  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
-  getMedicalInfoByChildId(
-    @Query('admin_id') admin_id: string,
-    @Param('id') id: number,
-  ) {
+  @UseGuards(ChildrenGuard)
+  getMedicalInfoByChildId(@Param('id') id: number) {
     return this.childrenService.getMedicalInfoByChildId(Number(id));
   }
 
   // guards : done , pipe : done , service : done
   @Put(':id/:type')
-  @UseGuards(ChildrenAuthGuard, ChildrenGuard)
+  @UseGuards(ChildrenGuard)
   updateChildType(
-    @Query('admin_id') admin_id: string,
     @Param('id') id: number,
     @Param('type') type: updateType,
     @Body(ValidateChildUpdatePipe) body: any,

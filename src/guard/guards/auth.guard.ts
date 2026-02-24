@@ -9,6 +9,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserRole } from '../enums/user-role.enum';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class GlobalAuthGuard implements CanActivate {
@@ -19,6 +20,16 @@ export class GlobalAuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // public route
+    if (isPublic) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest();
 
     const token = request.cookies?.authToken;
@@ -43,10 +54,10 @@ export class GlobalAuthGuard implements CanActivate {
       console.log('Utilisateur authentifié:', user.email, 'Rôle:', user.role);
 
       // 4. Vérifier les rôles requis
-      const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-        'roles',
-        [context.getHandler(), context.getClass()],
-      );
+      const requiredRoles = this.reflector.getAllAndMerge<UserRole[]>('roles', [
+        context.getHandler(),
+        context.getClass(),
+      ]);
 
       if (requiredRoles && requiredRoles.length > 0) {
         if (!requiredRoles.includes(user.role as UserRole)) {
