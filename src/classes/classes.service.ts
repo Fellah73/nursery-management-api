@@ -197,6 +197,72 @@ export class ClassesService {
   }
 
   // service : done
+  async getClassStatistics() {
+    try {
+      // total classes
+      const totalClasses = await this.prismaService.classroom.count();
+
+      // classes without children
+      const classesWithoutChildren = await this.prismaService.classroom.count({
+        where: {
+          assignments: {
+            none: {},
+          },
+        },
+      });
+
+      // classes with children
+      const classesWithChildren = await this.prismaService.classroom.findMany({
+        where: {
+          assignments: {
+            some: {},
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          capacity: true,
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              familyName: true,
+              email: true,
+              gender: true,
+              profile_picture: true,
+            },
+          },
+          _count: {
+            select: {
+              assignments: true,
+            },
+          },
+        },
+        take: 6,
+      });
+
+      return {
+        message: 'Class statistics retrieved successfully',
+        success: true,
+        statusCode: 200,
+        data: {
+          total: totalClasses,
+          with: totalClasses - classesWithoutChildren,
+          without: classesWithoutChildren,
+          classes: classesWithChildren,
+        },
+      };
+    } catch (error) {
+      return {
+        message: 'An error occurred while retrieving class statistics',
+        statusCode: 500,
+        success: false,
+      };
+    }
+  }
+
+  // service : done
   async getClassById(@Param('id') id: number) {
     try {
       const classroom = await this.prismaService.classroom.findUnique({
@@ -250,7 +316,10 @@ export class ClassesService {
   }
 
   // service : done
-  async updateClass(@Body() classData: ClassUpdateDto, @Param('id') id: number) {
+  async updateClass(
+    @Body() classData: ClassUpdateDto,
+    @Param('id') id: number,
+  ) {
     try {
       const existingClass = await this.prismaService.classroom.findUnique({
         where: { id: Number(id) },

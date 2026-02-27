@@ -60,6 +60,12 @@ export class EventsController {
     return this.eventsService.getMonthlyEvents(query);
   }
 
+  // guards : done , service : testing
+  @Get('statistics')
+  getEventsStatistics() {
+    return this.eventsService.getEventsStatistics();
+  }
+
   // guards : done , service : done
   @Get('upcoming-birthdays')
   getUpcomingBirthdays(@Query() query: EventSoonestBirthdaysDto) {

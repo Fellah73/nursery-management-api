@@ -46,6 +46,12 @@ export class ClassesController {
   }
 
   // guards : done , service : done
+  @Get('statistics')
+  getClassStatistics() {
+    return this.classesService.getClassStatistics();
+  }
+
+  // guards : done , service : done
   @Get(':id')
   @UseGuards(ClassesGuard)
   getClassById(@Param('id') id: number) {

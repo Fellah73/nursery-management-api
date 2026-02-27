@@ -833,4 +833,65 @@ export class EventsService {
       };
     }
   }
+
+  // service : testing
+  async getEventsStatistics() {
+    try {
+      // total events
+      const totalEvents = await this.prismaService.event.count();
+
+      // overview of events
+      const eventsWithMedia = await this.prismaService.event.findMany({
+        select: {
+          id: true,
+          title: true,
+          eventType: true,
+          eventDate: true,
+          location: true,
+        },
+        take: 6,
+      });
+
+      // stats by type
+      const eventTypeStats = await this.prismaService.event.groupBy({
+        by: ['eventType'],
+        _count: {
+          eventType: true,
+        },
+      });
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Event statistics retrieved successfully',
+        data: {
+          total: totalEvents,
+          type: {
+            FIELD_TRIP:
+              eventTypeStats.find((stat) => stat.eventType === 'FIELD_TRIP')
+                ?._count.eventType || 0,
+            CELEBRATION:
+              eventTypeStats.find((stat) => stat.eventType === 'CELEBRATION')
+                ?._count.eventType || 0,
+            PERFORMANCE:
+              eventTypeStats.find((stat) => stat.eventType === 'PERFORMANCE')
+                ?._count.eventType || 0,
+            BIRTHDAY:
+              eventTypeStats.find((stat) => stat.eventType === 'BIRTHDAY')
+                ?._count.eventType || 0,
+            OTHER:
+              eventTypeStats.find((stat) => stat.eventType === 'OTHER')?._count
+                .eventType || 0,
+          },
+          events: eventsWithMedia,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
+      };
+    }
+  }
 }

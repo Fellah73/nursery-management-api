@@ -125,57 +125,46 @@ export class ChildrenService {
   // service : done
   async getChildrenStatistics() {
     try {
+      // Total children
       const totalChildren = await this.prismaService.children.count();
-      const boysCount = await this.prismaService.children.count({
+     
+      // Total children by gender     
+      const totalBoys = await this.prismaService.children.count({
         where: { gender: 'H' },
       });
-      const girlsCount = await this.prismaService.children.count({
-        where: { gender: 'F' },
+
+      // Latest 6 children with assignment
+      const latestChildren = await this.prismaService.children.findMany({
+        orderBy: { created_at: 'desc' },
+        where: {
+          assignments: {
+            some: {},
+          },
+        },
+        take: 6,
+        select: {
+          id: true,
+          full_name: true,
+          gender: true,
+          profile_picture: true,
+          birth_date: true,
+        },
       });
-
-      // By age group
-      const children = await this.prismaService.children.findMany({
-        select: { birth_date: true },
-      });
-
-      const byAgeGroup = {
-        '< 2': 0,
-        '2-3': 0,
-        '4-5': 0,
-        '6+': 0,
-      };
-
-      for (const child of children) {
-        let age = this.calculateAge(child.birth_date);
-
-        if (age < 2) {
-          byAgeGroup['< 2']++;
-        } else if (age >= 2 && age <= 3) {
-          byAgeGroup['2-3']++;
-        } else if (age >= 4 && age <= 5) {
-          byAgeGroup['4-5']++;
-        } else if (age >= 6) {
-          byAgeGroup['6+']++;
-        }
-      }
 
       return {
-        status: 'success',
         data: {
-          totalChildren,
-          byGender: {
-            boysCount,
-            girlsCount,
-          },
-          byAgeGroup,
+          total: totalChildren,
+          homme: totalBoys,
+          girls: totalChildren - totalBoys,
+          children: latestChildren,
         },
+        status: 'success',
         success: true,
         statusCode: 200,
       };
     } catch (error) {
       return {
         status: 'error',
-        message: error.message,
         success: false,
         statusCode: 500,
       };
@@ -394,7 +383,6 @@ export class ChildrenService {
     @Body() body: any,
   ) {
     try {
-    
       if (body.type != type) {
         return {
           status: 'error',
