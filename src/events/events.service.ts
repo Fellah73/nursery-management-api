@@ -522,6 +522,66 @@ export class EventsService {
     }
   }
 
+  // service : testing
+  async getLatestEvents() {
+    try {
+      const events = await this.prismaService.event.findMany({
+        where: {
+          eventType: {
+            not: 'FIELD_TRIP',
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          eventType: true,
+          eventDate: true,
+          location: true,
+          isPublished: true,
+          child: {
+            select: {
+              id: true,
+              full_name: true,
+              gender: true,
+              profile_picture: true,
+              birth_date: true,
+            },
+          },
+          images: {
+            select: {
+              mediaUrl: true,
+            },
+          },
+        },
+        take: 2,
+      });
+
+      if (!events || events.length === 0) {
+        return {
+          success: false,
+          statusCode: 404,
+          message: 'No events found',
+        };
+      }
+
+      const formatedEvents = events.map((event) => this.formatResponse(event));
+
+      return {
+        success: true,
+        statusCode: 200,
+        message: 'Events retrieved successfully',
+        events: formatedEvents,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        statusCode: 500,
+        message: 'Internal server error',
+      };
+    }
+  }
+
   // service : done
   async updateEvent(@Param('id') id: string, @Body() body: UpdateEventDto) {
     try {
@@ -835,7 +895,7 @@ export class EventsService {
   }
 
   // service : testing
-  async getEventsStatistics() {
+  async getEventsStatistics(limit: number) {
     try {
       // total events
       const totalEvents = await this.prismaService.event.count();
@@ -849,7 +909,7 @@ export class EventsService {
           eventDate: true,
           location: true,
         },
-        take: 6,
+        take: limit ? Number(limit) : 5,
       });
 
       // stats by type

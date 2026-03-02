@@ -229,7 +229,7 @@ export class SettingsService {
         linkedin: nurseryProfile.linkedin || null,
         youtube: nurseryProfile.youtube || null,
         website: nurseryProfile.website || null,
-        tiktok : nurseryProfile.tiktok || null,
+        tiktok: nurseryProfile.tiktok || null,
       };
 
       return {
@@ -294,6 +294,59 @@ export class SettingsService {
       return {
         success: false,
         message: 'Failed to update profile',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        statusCode: 500,
+      };
+    }
+  }
+
+  // service : testing
+  async getApplicationStatistics() {
+    try {
+      const users = await this.prismaService.user.findMany();
+      const totalChildren = await this.prismaService.children.count();
+      const totalClasses = await this.prismaService.classroom.count({
+        where: {
+          assignments: {
+            some: {},
+          },
+        },
+      });
+
+      const totalSchedules = await this.prismaService.schedulePeriod.count({
+        where: {
+          isActive: true,
+        },
+      });
+
+      const totalMeals = await this.prismaService.menuPeriod.count({
+        where: {
+          isActive: true,
+        },
+      });
+
+
+      const totalEvents = await this.prismaService.event.count();
+        
+
+      return {
+        success: true,
+        message: 'Application statistics retrieved successfully',
+        statistics: {
+          users: users.filter((user) => user.role === 'SUPER_ADMIN' || user.role === 'ADMIN').length,
+          children: totalChildren,
+          teachers : users.filter((user) => user.role === 'TEACHER').length,
+          classes: totalClasses,
+          schedules: totalSchedules,
+          meals: totalMeals,
+          events: totalEvents,
+        },
+        statusCode: 200,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to retrieve application statistics',
         error: error instanceof Error ? error.message : 'Unknown error',
         statusCode: 500,
       };

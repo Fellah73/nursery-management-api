@@ -123,17 +123,17 @@ export class ChildrenService {
   }
 
   // service : done
-  async getChildrenStatistics() {
+  async getChildrenStatistics(limit: number) {
     try {
       // Total children
       const totalChildren = await this.prismaService.children.count();
-     
-      // Total children by gender     
+
+      // Total children by gender
       const totalBoys = await this.prismaService.children.count({
         where: { gender: 'H' },
       });
 
-      // Latest 6 children with assignment
+      // Latest  children with assignment
       const latestChildren = await this.prismaService.children.findMany({
         orderBy: { created_at: 'desc' },
         where: {
@@ -141,7 +141,7 @@ export class ChildrenService {
             some: {},
           },
         },
-        take: 6,
+        take: limit ? Number(limit) : 5,
         select: {
           id: true,
           full_name: true,

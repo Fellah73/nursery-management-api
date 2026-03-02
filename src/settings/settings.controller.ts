@@ -4,6 +4,7 @@ import { UserRole } from 'src/guard/enums/user-role.enum';
 import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
 import { UpdateProfileDto, UpdateSettingsDto } from './dto/settings-dto';
 import { SettingsService } from './settings.service';
+import { Public } from 'src/guard/decorators/public.decorator';
 
 @Controller('settings')
 @UseGuards(GlobalAuthGuard)
@@ -26,7 +27,7 @@ export class SettingsController {
 
   // guards : done , service : done
   @Get('profile')
-  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @Public()
   getProfile() {
     return this.settingsService.getProfile();
   }
@@ -41,5 +42,11 @@ export class SettingsController {
   @Post('reset')
   resetSettings() {
     return this.settingsService.resetSettings();
+  }
+
+  @Get('statistics')
+  @Public()
+  getApplicationStatistics() {
+    return this.settingsService.getApplicationStatistics();
   }
 }

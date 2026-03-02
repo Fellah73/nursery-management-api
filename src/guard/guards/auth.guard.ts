@@ -51,9 +51,6 @@ export class GlobalAuthGuard implements CanActivate {
         throw new ForbiddenException('Utilisateur non trouvé');
       }
 
-      console.log('Utilisateur authentifié:', user.email, 'Rôle:', user.role);
-
-      // 4. Vérifier les rôles requis
       const requiredRoles = this.reflector.getAllAndMerge<UserRole[]>('roles', [
         context.getHandler(),
         context.getClass(),
@@ -67,7 +64,6 @@ export class GlobalAuthGuard implements CanActivate {
         }
       }
 
-      //Attacher l'utilisateur à la requête (accessible dans le controller)
       request.user = user;
 
       return true;

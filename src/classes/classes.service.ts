@@ -197,7 +197,7 @@ export class ClassesService {
   }
 
   // service : done
-  async getClassStatistics() {
+  async getClassStatistics(limit: number) {
     try {
       // total classes
       const totalClasses = await this.prismaService.classroom.count();
@@ -239,7 +239,7 @@ export class ClassesService {
             },
           },
         },
-        take: 6,
+        take: limit ? Number(limit) : 5,
       });
 
       return {

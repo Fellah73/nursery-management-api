@@ -38,8 +38,8 @@ export class ChildrenController {
 
   // guards : done , service : done
   @Get('statistics')
-  getChildrenStatistics() {
-    return this.childrenService.getChildrenStatistics();
+  getChildrenStatistics(@Query('limit') limit: number) {
+    return this.childrenService.getChildrenStatistics(limit);
   }
 
   // guards : done , service : done

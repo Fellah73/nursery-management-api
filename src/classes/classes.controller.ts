@@ -47,8 +47,8 @@ export class ClassesController {
 
   // guards : done , service : done
   @Get('statistics')
-  getClassStatistics() {
-    return this.classesService.getClassStatistics();
+  getClassStatistics(@Query('limit') limit: number) {
+    return this.classesService.getClassStatistics(limit);
   }
 
   // guards : done , service : done

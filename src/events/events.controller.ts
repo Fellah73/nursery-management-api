@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Public } from 'src/guard/decorators/public.decorator';
 import { Roles } from 'src/guard/decorators/roles.decorator';
 import { UserRole } from 'src/guard/enums/user-role.enum';
 import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
@@ -49,6 +50,13 @@ export class EventsController {
   }
 
   // guards : done , service : done
+  @Get('latest')
+  @Public()
+  getLatestEvents() {
+    return this.eventsService.getLatestEvents();
+  }
+
+  // guards : done , service : done
   @Get('period')
   getEventsPeriod(@Query() query: EventDtoGet) {
     return this.eventsService.getEventsPeriod(query);
@@ -62,8 +70,9 @@ export class EventsController {
 
   // guards : done , service : testing
   @Get('statistics')
-  getEventsStatistics() {
-    return this.eventsService.getEventsStatistics();
+  @Public()
+  getEventsStatistics(@Query('limit') limit: number) {
+    return this.eventsService.getEventsStatistics(limit);
   }
 
   // guards : done , service : done
