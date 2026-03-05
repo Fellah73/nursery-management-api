@@ -24,7 +24,6 @@ model User {
   isActive        Boolean   @default(true)
 
   // Relations
-  children      Children[]
   userResponses UserResponse[]
   // Relations pour les présences du personnel
   attendances   Attendance[]   @relation("AttendanceUser")
@@ -44,7 +43,6 @@ model Children {
   birth_date      String  @db.VarChar
   gender          Gender
   profile_picture String? @db.VarChar
-  parent_id       Int
 
   // Nouvelles infos
   address                     String? @db.VarChar
@@ -64,9 +62,6 @@ model Children {
   notes      String? @db.Text
 
   created_at DateTime @default(now())
-
-  // Relations
-  parent User @relation(fields: [parent_id], references: [id])
 
   // Relation inverse pour les affectations
   assignments Assignment[]
@@ -315,23 +310,23 @@ model EventMedia {
 model NurseryProfile {
   id Int @id @default(autoincrement())
 
-  name        String  @db.VarChar(100)
-  slogan      String? @db.VarChar(200)
-  logo        String? @db.Text        
-  
-  address     String? @db.VarChar(255)
-  phone       String? @db.VarChar(20)
-  phone2      String? @db.VarChar(20)  
-  email       String? @db.VarChar(100)
+  name   String  @db.VarChar(100)
+  slogan String? @db.VarChar(200)
+  logo   String? @db.Text
 
-  facebook    String? @db.Text
-  instagram   String? @db.Text
-  twitter     String? @db.Text
-  linkedin    String? @db.Text
-  youtube     String? @db.Text
-  tiktok      String? @db.Text
-  website     String? @db.Text 
- 
+  address String? @db.VarChar(255)
+  phone   String? @db.VarChar(20)
+  phone2  String? @db.VarChar(20)
+  email   String? @db.VarChar(100)
+
+  facebook  String? @db.Text
+  instagram String? @db.Text
+  twitter   String? @db.Text
+  linkedin  String? @db.Text
+  youtube   String? @db.Text
+  tiktok    String? @db.Text
+  website   String? @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

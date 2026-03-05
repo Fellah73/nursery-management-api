@@ -14,7 +14,7 @@ import { UserRole } from 'src/guard/enums/user-role.enum';
 import { GlobalAuthGuard } from 'src/guard/guards/auth.guard';
 import { ChildrenService } from './children.service';
 import { ChildrenDtoGet, CreateChildDto, updateType } from './dto/children-dto';
-import { ChildrenGuard } from './gurads/child.guard';
+import { ChildrenGuard } from './guards/child.guard';
 import { ValidateChildCreationPipe } from './pipe/validate-child';
 import { ValidateChildUpdatePipe } from './pipe/validate-update';
 

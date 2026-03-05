@@ -35,7 +35,6 @@ export class ChildrenService {
       children.forEach((child) => {
         delete (child as any).entry_date;
         delete (child as any).created_at;
-        delete (child as any).parent_id;
       });
 
       const totalChildren = await this.prismaService.children.count({});
@@ -85,7 +84,6 @@ export class ChildrenService {
           address: childData.address,
           city: childData.city,
           gender: childData.gender,
-          parent_id: 8,
           entry_date: new Date().toISOString().split('T')[0],
           emergency_contact: childData.emergency_contact_name || null,
           emergency_phone: childData.emergency_contact_phone || null,
@@ -104,7 +102,6 @@ export class ChildrenService {
 
       delete (newChild as any).entry_date;
       delete (newChild as any).created_at;
-      delete (newChild as any).parent_id;
 
       return {
         status: 'success',
@@ -323,7 +320,6 @@ export class ChildrenService {
       });
 
       delete (child as any).created_at;
-      delete (child as any).parent_id;
 
       return {
         status: 'success',
@@ -448,7 +444,6 @@ export class ChildrenService {
       });
 
       delete (updatedChild as any).created_at;
-      delete (updatedChild as any).parent_id;
 
       return {
         status: 'success',

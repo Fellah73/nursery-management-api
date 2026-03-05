@@ -1,4 +1,3 @@
-// schedules/pipes/validate-slots.pipe.ts
 import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateAssignmentsDto } from '../dto/assignments-dto';
