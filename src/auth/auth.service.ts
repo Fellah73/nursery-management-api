@@ -166,11 +166,19 @@ export class AuthService {
         },
       );
 
+      res.cookie('authToken', token, {
+        httpOnly: true,
+        maxAge: 60 * 60 * 1000,
+        sameSite: 'none',
+        secure: true,
+        path: '/',
+      });
+
       return res.status(200).json({
         message: 'Login successful',
         statusCode: 200,
         role: user.role,
-        token: token,
+        token : token,
         success: true,
       });
     } catch (error) {
