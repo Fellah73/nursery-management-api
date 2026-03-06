@@ -219,6 +219,11 @@ export class AppService {
               <a href="/auth/register" class="btn btn-secondary">Register</a>
             </div>
 
+            <!-- Author -->
+            <div style="font-size:17px; color:rgb(169, 174, 186); letter-spacing:0.5px;">
+              Built by <span style="font-size:18px; background:linear-gradient(135deg,#f9a8d4,#c084fc); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-weight:700;">Fellah Mohamed Saci</span> &nbsp;·&nbsp; Software Engineer
+            </div>
+
             <!-- Footer -->
             <div class="footer">© 2026 Nursery Management. All rights reserved.</div>
 

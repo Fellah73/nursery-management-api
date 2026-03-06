@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
@@ -12,38 +13,46 @@ import {
 } from 'class-validator';
 
 export class UpdateSettingsDto {
+  @ApiProperty({ example: '08:00' })
   @IsString()
   @Matches(/^(0[7-9]):[0-5][0-9]$/, {
     message: 'Opening time must be in HH:MM format and in the morning',
   })
   openingTime!: string;
 
+  @ApiProperty({ example: '15' })
   @IsNumber()
   @Min(5, { message: 'Slot interval must be at least 5 minutes' })
   slotInterval!: number;
 
+  @ApiProperty({ example: '4' })
   @IsNumber()
   @IsEnum([4, 5], {
     message: 'Slots per day must be a 4 or 5',
   })
   slotsPerDay!: number;
 
+  @ApiProperty({ example: '10' })
   @IsNumber()
   @Min(10, { message: 'Slot duration must be at least 10 minutes' })
   slotDuration!: number;
 
+  @ApiProperty({ example: '20' })
   @IsNumber()
   @Min(10, { message: 'Breakfast duration must be at least 10 minutes' })
   breakfastDuration!: number;
 
+  @ApiProperty({ example: '30' })
   @IsNumber()
   @Min(10, { message: 'Lunch duration must be at least 10 minutes' })
   lunchDuration!: number;
 
+  @ApiProperty({ example: '45' })
   @IsNumber()
   @Min(40, { message: 'Nap duration must be at least 40 minutes' })
   napDuration!: number;
 
+  @ApiProperty({ example: '10' })
   @IsNumber()
   @Min(5, { message: 'Snack duration must be at least 5 minutes' })
   @Max(15, { message: 'Snack duration must be at most 15 minutes' })
@@ -51,6 +60,7 @@ export class UpdateSettingsDto {
 }
 
 class SocialLinksDto {
+  @ApiProperty({ example: 'https://www.facebook.com/username' })
   @IsOptional()
   @IsString()
   @Matches(
@@ -62,6 +72,7 @@ class SocialLinksDto {
   )
   facebook!: string;
 
+  @ApiProperty({ example: 'https://twitter.com/username' })
   @IsOptional()
   @IsString()
   @Matches(/^https:\/\/(www\.)?(x\.com|twitter\.com)\/[A-Za-z0-9_]+$/, {
@@ -69,6 +80,7 @@ class SocialLinksDto {
   })
   twitter!: string;
 
+  @ApiProperty({ example: 'https://www.instagram.com/username' })
   @IsOptional()
   @IsString()
   @Matches(/^https:\/\/www\.instagram\.com\/[A-Za-z0-9._%+-]+$/, {
@@ -76,6 +88,7 @@ class SocialLinksDto {
   })
   instagram!: string;
 
+  @ApiProperty({ example: 'https://www.linkedin.com/in/username' })
   @IsOptional()
   @IsString()
   @Matches(/^https:\/\/www\.linkedin\.com\/in\/[A-Za-z0-9._%+-]+\/?$/, {
@@ -83,6 +96,7 @@ class SocialLinksDto {
   })
   linkedin!: string;
 
+  @ApiProperty({ example: 'https://www.youtube.com/channel/username' })
   @IsOptional()
   @IsString()
   @Matches(
@@ -93,6 +107,7 @@ class SocialLinksDto {
   )
   youtube!: string;
 
+  @ApiProperty({ example: 'https://www.tiktok.com/@username' })
   @IsOptional()
   @IsString()
   @Matches(/^https:\/\/www\.tiktok\.com\/@[A-Za-z0-9._%+-]+\/?$/, {
@@ -101,24 +116,29 @@ class SocialLinksDto {
   })
   tiktok!: string;
 
+  @ApiProperty({ example: 'https://www.website.com' })
   @IsOptional()
   @IsString()
   website!: string;
 }
 
 export class UpdateProfileDto {
+  @ApiProperty({ example: 'El Amel Nursery' })
   @IsOptional()
   @IsString()
   name!: string;
 
+  @ApiProperty({ example: 'Where learning is fun' })
   @IsOptional()
   @IsString()
   slogan!: string;
 
+  @ApiProperty({ example: 'https://www.example.com/logo.png' })
   @IsOptional()
   @IsString()
   logo!: string;
 
+  @ApiProperty({ example: '0612345678' })
   @IsOptional()
   @Matches(/^(05|06|07)\d{8}$/, {
     message:
@@ -126,6 +146,7 @@ export class UpdateProfileDto {
   })
   phone!: string;
 
+  @ApiProperty({ example: '0687654321' })
   @IsOptional()
   @Matches(/^(05|06|07)\d{8}$/, {
     message:
@@ -133,10 +154,12 @@ export class UpdateProfileDto {
   })
   phone2!: string;
 
+  @ApiProperty({ example: 'user@nursery.com' })
   @IsOptional()
   @IsEmail({}, { message: 'Email must be a valid email address' })
   email!: string;
 
+  @ApiProperty({ type: SocialLinksDto })
   @IsOptional()
   @ValidateNested()
   @Type(() => SocialLinksDto)

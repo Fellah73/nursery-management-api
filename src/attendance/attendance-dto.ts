@@ -1,8 +1,11 @@
+import { ApiProperty } from '@nestjs/swagger';
+
 export class AttendanceDto {
-  admin_id: number;
+  @ApiProperty({ example: '5' })
+  admin_id!: number;
 }
 
 export class AttendanceUpdateDto extends AttendanceDto {
-  time: string;
+  @ApiProperty({ example: '15:30' })
+  time!: string;
 }
-

@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsNumberString,
@@ -7,19 +8,23 @@ import {
 } from 'class-validator';
 
 export class TeacherDtoGet {
+  @ApiProperty({ example: '10' })
   @IsNumberString()
   perPage!: string;
 
+  @ApiPropertyOptional({ example: '1' })
   @IsOptional()
   @IsNumberString()
   page?: number;
 }
 
 export class TeacherDtoUpdate {
+  @ApiPropertyOptional({ example: 'teacher@gmail.com' })
   @IsOptional()
   @IsEmail()
   email?: string;
 
+  @ApiProperty({ example: 'Password123' })
   @IsString()
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/, {
     message:
@@ -27,6 +32,7 @@ export class TeacherDtoUpdate {
   })
   password!: string;
 
+  @ApiPropertyOptional({ example: '0555441134' })
   @IsOptional()
   @Matches(/^(5|6|7)[0-9]{8}$/, {
     message:
@@ -34,25 +40,29 @@ export class TeacherDtoUpdate {
   })
   phone?: string;
 
+  @ApiPropertyOptional({ example: '16 Rue La Paix ,Alger Centre , Alger' })
   @IsOptional()
   @IsString()
   address?: string;
 
+  @ApiPropertyOptional({ example: 'https://example.com/profile.jpg' })
   @IsOptional()
   @IsString()
   profile_picture?: string;
 }
 
 export class TeacherDtoCreate extends TeacherDtoUpdate {
+  @ApiProperty({ example: 'Mohamed' })
   @IsString()
   @Matches(/^[A-Z].*$/, {
     message: 'name must start with an uppercase letter',
   })
-  name: string;
+  name!: string;
 
+  @ApiProperty({ example: 'Fellah' })
   @IsString()
   @Matches(/^[A-Z].*$/, {
     message: 'family name must start with an uppercase letter',
   })
-  familyName: string;
+  familyName!: string;
 }
