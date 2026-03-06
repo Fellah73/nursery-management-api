@@ -114,7 +114,7 @@ export class AuthService {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
         sameSite: 'lax',
-        secure: false,
+        secure: process.env.NODE_ENV === 'production',
         path: '/',
       });
 
@@ -170,7 +170,7 @@ export class AuthService {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
         sameSite: 'lax',
-        secure: false, // Set to true if using HTTPS
+        secure: process.env.NODE_ENV === 'production',
         path: '/',
       });
 
@@ -226,7 +226,7 @@ export class AuthService {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
         sameSite: 'strict',
-        secure: false, // Set to true if using HTTPS
+        secure: process.env.NODE_ENV === 'production',
         path: '/',
       });
 
@@ -472,7 +472,7 @@ export class AuthService {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
         sameSite: 'lax',
-        secure: false, // Set to true if using HTTPS
+        secure: process.env.NODE_ENV === 'production',
         path: '/',
       });
 
