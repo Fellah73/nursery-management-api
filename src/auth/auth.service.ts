@@ -270,7 +270,7 @@ export class AuthService {
 
       response.setHeader(
         'Set-Cookie',
-        'authToken=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax',
+        'authToken=; HttpOnly; Max-Age=0; Path=/; SameSite=None; Secure',
       );
 
       return response.status(200).json({
