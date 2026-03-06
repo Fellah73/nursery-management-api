@@ -104,7 +104,7 @@ export class AuthService {
 
       // delete old cookie and set new one
       res.clearCookie('authToken');
-     
+
       // revalidate email token with provided email
       const newToken = jwt.sign({ email }, process.env.AUTH_SECRET_KEY!, {
         expiresIn: '60m',
@@ -113,8 +113,8 @@ export class AuthService {
       res.cookie('authToken', newToken, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        secure: true,
         path: '/',
       });
 
@@ -122,7 +122,7 @@ export class AuthService {
         message: 'Login successful',
         statusCode: 200,
         success: true,
-        user : this.formatUser(user),
+        user: this.formatUser(user),
       });
     } catch (error) {
       return {
@@ -169,8 +169,8 @@ export class AuthService {
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        secure: true,
         path: '/',
       });
 
@@ -225,8 +225,8 @@ export class AuthService {
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'strict',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        secure: true,
         path: '/',
       });
 
@@ -471,8 +471,8 @@ export class AuthService {
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        secure: true,
         path: '/',
       });
 
