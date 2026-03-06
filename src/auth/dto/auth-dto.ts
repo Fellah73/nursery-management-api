@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
   IsEnum,
@@ -7,15 +8,18 @@ import {
 } from 'class-validator';
 
 export class LoginDto {
+  @ApiProperty({ example: 'user@example.com' })
   @IsEmail()
-  email: string;
+  email!: string;
 
+  @ApiProperty({ example: 'Password123' })
+  @IsOptional()
   @IsString()
   @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/, {
     message:
       'Password must be minimum eight characters, at least one letter and one number',
   })
-  password: string;
+  password!: string;
 }
 
 export enum UserRole {
@@ -25,22 +29,27 @@ export enum UserRole {
 }
 
 export class RegisterDto {
+  @ApiProperty({ example: 'Mohamed' })
   @IsString()
-  name: string;
+  name!: string;
 
+  @ApiProperty({ example: 'Fellah' })
   @IsString()
-  familyName: string;
+  familyName!: string;
 
+  @ApiProperty({ example: 'user@gmail.com' })
   @IsEmail()
-  email: string;
+  email!: string;
 
+  @ApiProperty({ example: 'Password123' })
   @IsString()
   @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/, {
     message:
       'Password must be minimum eight characters, at least one letter and one number',
   })
-  password: string;
+  password!: string;
 
+  @ApiProperty({ example: '0501234567' })
   @IsOptional()
   @IsString()
   @Matches(/^0[567]\d{8}$/, {
@@ -48,30 +57,37 @@ export class RegisterDto {
   })
   phone?: string;
 
+  @ApiProperty({ example: 'ADMIN' })
   @IsOptional()
   @IsEnum(UserRole, { message: 'role must be ADMIN, PARENT, or TEACHER' })
   role?: UserRole;
 
+  @ApiProperty({ example: '16 Rue de la Paix ,Alger Center ,Algeria' })
   @IsOptional()
   @IsString()
   address?: string;
 
+  @ApiProperty({ example: 'H' })
   @IsString()
   @IsEnum(['H', 'F'], { message: 'gender must be H or F' })
-  gender: 'H' | 'F';
+  gender!: 'H' | 'F';
 
+  @ApiProperty({ example: 'https://example.com/profile.jpg' })
   @IsOptional()
   @IsString()
   profile_picture?: string;
 }
 
 export class ForgotPasswordDto {
+  @ApiProperty({ example: 'user@gmail.com' })
   @IsEmail()
-  email: string;
+  email!: string;
 
+  @ApiProperty({ example: '5' })
   @IsString()
-  questionId: string;
+  questionId!: string;
 
+  @ApiProperty({ example: 'Pink' })
   @IsString()
-  answer: string;
+  answer!: string;
 }

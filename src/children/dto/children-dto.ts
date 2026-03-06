@@ -1,3 +1,4 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -11,41 +12,50 @@ import {
 import { Gender } from 'generated/prisma';
 
 export class AllergyDto {
+  @ApiProperty({ example : 'alimentaires' })
   @Matches(/^(alimentaires|respiratoires|médicamenteuses|contact)$/, {
     message:
       'category must be one of the following: alimentaires, respiratoires, médicamenteuses or contact',
   })
-  category: string;
+  category!: string;
 
+  @ApiProperty({ example : 'arachides' })
   @IsString()
-  name: string;
+  name!: string;
 }
 
 export class CreateChildDto {
+  @ApiProperty({ example: 'Fellah_Mohamed' })
   @IsString()
-  full_name: string;
+  full_name!: string;
 
+  @ApiProperty({ example: '2020-01-01' })
   @IsString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
     message: 'birth_date must be in the format YYYY-MM-DD',
   })
-  birth_date: string;
+  birth_date!: string;
 
+  @ApiProperty({ example: 'H' })
   @IsEnum(Gender, {
     message: 'gender must be H or F',
   })
-  gender: Gender;
+  gender!: Gender;
 
+  @ApiProperty({ example: '16 Rue de la Paix ,Alger Center ,Algeria' })
   @IsString()
-  address: string;
+  address!: string;
 
+  @ApiProperty({ example: 'Alger Center' })
   @IsString()
-  city: string;
+  city!: string;
 
+  @ApiPropertyOptional({ example: 'Dad' })
   @IsOptional()
   @IsString()
   emergency_contact_name?: string;
 
+  @ApiPropertyOptional({ example: '0501234567' })
   @IsOptional()
   @Matches(/^(05|06|07)[0-9]{8}$/, {
     message:
@@ -53,10 +63,12 @@ export class CreateChildDto {
   })
   emergency_contact_phone?: string;
 
+  @ApiPropertyOptional({ example: 'Mom' })
   @IsOptional()
   @IsString()
   secondary_emergency_contact_name?: string;
 
+  @ApiPropertyOptional({ example: '0501234568' })
   @IsOptional()
   @Matches(/^(05|06|07)[0-9]{8}$/, {
     message:
@@ -64,26 +76,36 @@ export class CreateChildDto {
   })
   secondary_emergency_contact_phone?: string;
 
+  @ApiProperty({ example: 'A+' })
   @Matches(/^(A\+|A-|B\+|B-|AB\+|AB-|O\+|O-)$/, {
     message:
       'blood_type must be one of the following: A+, A-, B+, B-, AB+, AB-, O+, O-',
   })
-  blood_type: string;
+  blood_type!: string;
 
+  @ApiPropertyOptional({ example: 'No allergies' })
   @IsOptional()
   @IsString()
   information?: string;
 
+  @ApiPropertyOptional({ example: 'No special needs' })
+  @IsOptional()
+  @IsString()
+  special_needs?: string;
+
+  @ApiPropertyOptional({ example: 'No allergies' })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => AllergyDto)
   allergies?: AllergyDto[];
 
+  @ApiPropertyOptional({ example: 'Glasses ...' })
   @IsOptional()
   @IsString()
   besoins?: string;
 
+  @ApiPropertyOptional({ example: 'COMPLETE' })
   @IsOptional()
   @Matches(/^(COMPLETE|INCOMPLETE|UNKNOWN)$/, {
     message:
@@ -91,19 +113,23 @@ export class CreateChildDto {
   })
   vaccination_status?: 'COMPLETE' | 'INCOMPLETE' | 'UNKNOWN';
 
+  @ApiPropertyOptional({ example: 'Like music ,dance' })
   @IsOptional()
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({ example: 'https://example.com/profile.jpg' })
   @IsOptional()
   @IsString()
   profile_picture?: string;
 }
 
 export class ChildrenDtoGet {
+  @ApiPropertyOptional({ example: '4' })
   @IsString()
   perPage!: string;
 
+  @ApiPropertyOptional({ example: '1' })
   @IsOptional()
   @IsNumberString()
   page?: number;
