@@ -113,7 +113,7 @@ export class AuthService {
       res.cookie('authToken', newToken, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'strict',
+        sameSite: 'none',
         secure: true,
         path: '/',
       });
@@ -169,7 +169,7 @@ export class AuthService {
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'strict',
+        sameSite: 'none',
         secure: true,
         path: '/',
       });
@@ -225,7 +225,7 @@ export class AuthService {
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'strict',
+        sameSite: 'none',
         secure: true,
         path: '/',
       });
@@ -471,7 +471,7 @@ export class AuthService {
       res.cookie('authToken', token, {
         httpOnly: true,
         maxAge: 60 * 60 * 1000,
-        sameSite: 'strict',
+        sameSite: 'none',
         secure: true,
         path: '/',
       });
