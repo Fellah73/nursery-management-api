@@ -4,7 +4,12 @@ import { Request, Response } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { env } from 'process';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ForgotPasswordDto, LoginDto, RegisterDto } from './dto/auth-dto';
+import {
+  ForgotPasswordDto,
+  LoginDto,
+  RegisterDto,
+  UserRole,
+} from './dto/auth-dto';
 @Injectable()
 export class AuthService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -179,7 +184,7 @@ export class AuthService {
         message: 'Login successful',
         statusCode: 200,
         role: user.role,
-        token : token,
+        token: token,
         success: true,
       });
     } catch (error) {
@@ -204,6 +209,11 @@ export class AuthService {
           success: false,
           statusCode: 500,
         });
+      }
+
+      // Set default role to ADMIN if not provided
+      if (!body.role) {
+        body.role = UserRole.ADMIN;
       }
 
       const registerBody = {
@@ -235,7 +245,7 @@ export class AuthService {
       return res.status(201).json({
         message: 'Registration successful',
         user: this.formatUser(newUser),
-        token : token,
+        token: token,
         success: true,
       });
     } catch (error) {
@@ -482,7 +492,7 @@ export class AuthService {
       return res.status(200).json({
         message: 'Password reset successfully',
         user: this.formatUser(updatedUser),
-        token : token,
+        token: token,
         success: true,
       });
     } catch (error) {
