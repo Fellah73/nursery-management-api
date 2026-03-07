@@ -123,6 +123,7 @@ export class AuthService {
         statusCode: 200,
         success: true,
         user: this.formatUser(user),
+        token: newToken,
       });
     } catch (error) {
       return {
@@ -234,6 +235,7 @@ export class AuthService {
       return res.status(201).json({
         message: 'Registration successful',
         user: this.formatUser(newUser),
+        token : token,
         success: true,
       });
     } catch (error) {
@@ -480,6 +482,7 @@ export class AuthService {
       return res.status(200).json({
         message: 'Password reset successfully',
         user: this.formatUser(updatedUser),
+        token : token,
         success: true,
       });
     } catch (error) {
